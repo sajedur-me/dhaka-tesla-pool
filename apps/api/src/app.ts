@@ -4,6 +4,7 @@ import Fastify, {
 
 import { registerAuthPlugin } from "./plugins/auth.js";
 import { registerAuthRoutes } from "./routes/auth.routes.js";
+import { registerDriverRoutes } from "./routes/driver.routes.js";
 import { registerPassengerRoutes } from "./routes/passenger.routes.js";
 
 export async function buildApp(): Promise<FastifyInstance> {
@@ -15,6 +16,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await registerAuthRoutes(app);
   await registerPassengerRoutes(app);
+  await registerDriverRoutes(app);
 
   app.get("/health", async () => {
     return {
