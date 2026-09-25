@@ -1,15 +1,26 @@
-import { afterEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  describe,
+  expect,
+  it,
+} from "vitest";
 
 import { buildApp } from "./app.js";
 
-describe("GET /health", () => {
-  const app = buildApp();
+describe("API", () => {
+  let app: Awaited<ReturnType<typeof buildApp>>;
 
-  afterEach(async () => {
+  beforeAll(async () => {
+    process.env.JWT_SECRET = "test-jwt-secret";
+    app = await buildApp();
+  });
+
+  afterAll(async () => {
     await app.close();
   });
 
-  it("returns the API health status", async () => {
+  it("returns API health", async () => {
     const response = await app.inject({
       method: "GET",
       url: "/health",
