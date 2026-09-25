@@ -20,7 +20,7 @@ describe("createRideRequest", () => {
     await prisma.$disconnect();
   });
 
-  it("creates a requested ride with the passenger route and fare", async () => {
+  it("creates a requested ride and calculates the pooled fare on the server", async () => {
     const passenger = await prisma.user.create({
       data: {
         id: "request-passenger",
@@ -36,7 +36,6 @@ describe("createRideRequest", () => {
       pickupZone: "BANANI",
       destinationZone: "MOHAKHALI",
       seats: 1,
-      estimatedFarePoisha: 8800,
     });
 
     expect(result.ride.status).toBe("REQUESTED");
@@ -49,6 +48,27 @@ describe("createRideRequest", () => {
     expect(result.membership.seats).toBe(1);
     expect(result.membership.farePoisha).toBe(8800);
     expect(result.membership.status).toBe("REQUESTED");
+  });
+
+  it("calculates a different fare for a longer supported route", async () => {
+    const passenger = await prisma.user.create({
+      data: {
+        id: "longer-route-passenger",
+        name: "Rafiq",
+        email: "rafiq-request@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const result = await createRideRequest({
+      passengerId: passenger.id,
+      pickupZone: "BANANI",
+      destinationZone: "GULSHAN_1",
+      seats: 1,
+    });
+
+    expect(result.membership.farePoisha).toBe(10400);
   });
 
   it("rejects a driver trying to create a passenger ride request", async () => {
@@ -68,7 +88,6 @@ describe("createRideRequest", () => {
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
         seats: 1,
-        estimatedFarePoisha: 8800,
       }),
     ).rejects.toThrow("Only passengers can request rides");
   });
@@ -80,7 +99,6 @@ describe("createRideRequest", () => {
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
         seats: 1,
-        estimatedFarePoisha: 8800,
       }),
     ).rejects.toThrow("Passenger not found");
   });
@@ -92,7 +110,6 @@ describe("createRideRequest", () => {
         pickupZone: "BANANI",
         destinationZone: "BANANI",
         seats: 1,
-        estimatedFarePoisha: 8800,
       }),
     ).rejects.toThrow("Pickup and destination must be different");
   });
@@ -104,20 +121,20 @@ describe("createRideRequest", () => {
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
         seats: 0,
-        estimatedFarePoisha: 8800,
       }),
     ).rejects.toThrow("Seats must be greater than zero");
   });
 
-  it("rejects an invalid estimated fare", async () => {
+  it("rejects an unsupported route", async () => {
     await expect(
       createRideRequest({
         passengerId: "unused-passenger",
-        pickupZone: "BANANI",
-        destinationZone: "MOHAKHALI",
+        pickupZone: "DHANMONDI",
+        destinationZone: "UTTARA",
         seats: 1,
-        estimatedFarePoisha: -1,
       }),
-    ).rejects.toThrow("Fare must be a non-negative integer");
+    ).rejects.toThrow(
+      "Unsupported route: DHANMONDI -> UTTARA",
+    );
   });
 });
