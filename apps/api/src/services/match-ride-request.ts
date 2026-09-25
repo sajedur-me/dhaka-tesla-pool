@@ -1,6 +1,7 @@
 import type {
   DhakaZone,
   RideStatus,
+  VehicleStatus,
 } from "../generated/prisma/client.js";
 
 import { prisma } from "../db/prisma.js";
@@ -12,6 +13,11 @@ const ACTIVE_PASSENGER_STATUSES = [
   "ACCEPTED",
   "DRIVER_ARRIVED",
   "STARTED",
+] as const;
+
+const OPEN_POOL_STATUSES = [
+  "REQUESTED",
+  "MATCHED",
 ] as const;
 
 type MatchRideRequestInput = {
@@ -70,7 +76,12 @@ export async function matchRideRequest({
           not: null,
         },
         status: {
-          in: ["REQUESTED", "MATCHED", "ACCEPTED"],
+          in: [...OPEN_POOL_STATUSES],
+        },
+        vehicle: {
+          is: {
+            status: "ONLINE",
+          },
         },
       },
       include: {
@@ -123,24 +134,67 @@ export async function matchRideRequest({
       return null;
     }
 
-    const lockedVehicles = await tx.$queryRaw<
+    const lockedCandidates = await tx.$queryRaw<
       Array<{
         id: string;
-        capacity: number;
+        vehicleId: string | null;
+        status: RideStatus;
       }>
     >`
       SELECT
         "id",
-        "capacity"
+        "vehicleId",
+        "status"
+      FROM "Ride"
+      WHERE "id" = ${candidate.id}
+      FOR UPDATE
+    `;
+
+    const lockedCandidate = lockedCandidates[0];
+
+    if (!lockedCandidate) {
+      return null;
+    }
+
+    if (
+      !OPEN_POOL_STATUSES.some(
+        (status) => status === lockedCandidate.status,
+      )
+    ) {
+      return null;
+    }
+
+    if (
+      !lockedCandidate.vehicleId ||
+      lockedCandidate.vehicleId !== candidate.vehicleId
+    ) {
+      return null;
+    }
+
+    const lockedVehicles = await tx.$queryRaw<
+      Array<{
+        id: string;
+        capacity: number;
+        status: VehicleStatus;
+      }>
+    >`
+      SELECT
+        "id",
+        "capacity",
+        "status"
       FROM "Vehicle"
-      WHERE "id" = ${candidate.vehicleId}
+      WHERE "id" = ${lockedCandidate.vehicleId}
       FOR UPDATE
     `;
 
     const vehicle = lockedVehicles[0];
 
     if (!vehicle) {
-      throw new Error("Vehicle not found");
+      return null;
+    }
+
+    if (vehicle.status !== "ONLINE") {
+      return null;
     }
 
     const occupiedResult = await tx.ridePassenger.aggregate({
@@ -148,7 +202,7 @@ export async function matchRideRequest({
         seats: true,
       },
       where: {
-        rideId: candidate.id,
+        rideId: lockedCandidate.id,
         status: {
           in: [...ACTIVE_PASSENGER_STATUSES],
         },
@@ -169,14 +223,14 @@ export async function matchRideRequest({
         id: requestMembership.id,
       },
       data: {
-        rideId: candidate.id,
+        rideId: lockedCandidate.id,
         status: "MATCHED",
       },
     });
 
     await tx.ride.update({
       where: {
-        id: candidate.id,
+        id: lockedCandidate.id,
       },
       data: {
         status: "MATCHED",
@@ -190,7 +244,7 @@ export async function matchRideRequest({
     });
 
     return {
-      rideId: candidate.id,
+      rideId: lockedCandidate.id,
       membership: matchedMembership,
     };
   });

@@ -420,4 +420,232 @@ describe("matchRideRequest", () => {
     expect(occupiedSeats).toBe(3);
     expect(pooledPassengers).toHaveLength(3);
   });
+
+  it("does not match into a ride whose vehicle is offline", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        id: "offline-match-driver",
+        name: "Jashim",
+        email: "offline-match-driver@example.com",
+        passwordHash: "test-hash",
+        role: "DRIVER",
+      },
+    });
+
+    const existingPassenger = await prisma.user.create({
+      data: {
+        id: "offline-existing-passenger",
+        name: "Nusrat",
+        email: "offline-existing@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const requestingPassenger = await prisma.user.create({
+      data: {
+        id: "offline-requesting-passenger",
+        name: "Rafiq",
+        email: "offline-requesting@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const bullet = await prisma.vehicle.create({
+      data: {
+        id: "offline-match-bullet",
+        name: "Bullet Offline Matching",
+        capacity: 3,
+        status: "OFFLINE",
+        driverId: driver.id,
+      },
+    });
+
+    const pooledRide = await prisma.ride.create({
+      data: {
+        id: "offline-match-pool",
+        driverId: driver.id,
+        vehicleId: bullet.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "MATCHED",
+      },
+    });
+
+    await prisma.ridePassenger.create({
+      data: {
+        id: "offline-existing-membership",
+        rideId: pooledRide.id,
+        passengerId: existingPassenger.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        seats: 1,
+        farePoisha: 8800,
+        status: "MATCHED",
+      },
+    });
+
+    const requestRide = await prisma.ride.create({
+      data: {
+        id: "offline-request-ride",
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        status: "REQUESTED",
+      },
+    });
+
+    await prisma.ridePassenger.create({
+      data: {
+        id: "offline-request-membership",
+        rideId: requestRide.id,
+        passengerId: requestingPassenger.id,
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        seats: 1,
+        farePoisha: 10400,
+        status: "REQUESTED",
+      },
+    });
+
+    const result = await matchRideRequest({
+      requestRideId: requestRide.id,
+    });
+
+    expect(result).toBeNull();
+
+    const originalRequest = await prisma.ride.findUnique({
+      where: {
+        id: requestRide.id,
+      },
+    });
+
+    expect(originalRequest?.status).toBe("REQUESTED");
+
+    const passengers = await prisma.ridePassenger.findMany({
+      where: {
+        rideId: pooledRide.id,
+      },
+    });
+
+    expect(passengers).toHaveLength(1);
+  });
+
+  it("does not add a passenger after the driver has accepted the pool", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        id: "accepted-match-driver",
+        name: "Jashim",
+        email: "accepted-match-driver@example.com",
+        passwordHash: "test-hash",
+        role: "DRIVER",
+      },
+    });
+
+    const existingPassenger = await prisma.user.create({
+      data: {
+        id: "accepted-existing-passenger",
+        name: "Nusrat",
+        email: "accepted-existing@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const requestingPassenger = await prisma.user.create({
+      data: {
+        id: "accepted-requesting-passenger",
+        name: "Shirin",
+        email: "accepted-requesting@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const bullet = await prisma.vehicle.create({
+      data: {
+        id: "accepted-match-bullet",
+        name: "Bullet Accepted Matching",
+        capacity: 3,
+        status: "ONLINE",
+        driverId: driver.id,
+      },
+    });
+
+    const pooledRide = await prisma.ride.create({
+      data: {
+        id: "accepted-match-pool",
+        driverId: driver.id,
+        vehicleId: bullet.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+      },
+    });
+
+    await prisma.ridePassenger.create({
+      data: {
+        id: "accepted-existing-membership",
+        rideId: pooledRide.id,
+        passengerId: existingPassenger.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        seats: 1,
+        farePoisha: 8800,
+        status: "ACCEPTED",
+      },
+    });
+
+    const requestRide = await prisma.ride.create({
+      data: {
+        id: "accepted-request-ride",
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        status: "REQUESTED",
+      },
+    });
+
+    await prisma.ridePassenger.create({
+      data: {
+        id: "accepted-request-membership",
+        rideId: requestRide.id,
+        passengerId: requestingPassenger.id,
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        seats: 1,
+        farePoisha: 10400,
+        status: "REQUESTED",
+      },
+    });
+
+    const result = await matchRideRequest({
+      requestRideId: requestRide.id,
+    });
+
+    expect(result).toBeNull();
+
+    const acceptedPool = await prisma.ride.findUniqueOrThrow({
+      where: {
+        id: pooledRide.id,
+      },
+    });
+
+    expect(acceptedPool.status).toBe("ACCEPTED");
+
+    const originalRequest = await prisma.ride.findUnique({
+      where: {
+        id: requestRide.id,
+      },
+    });
+
+    expect(originalRequest?.status).toBe("REQUESTED");
+
+    const passengers = await prisma.ridePassenger.findMany({
+      where: {
+        rideId: pooledRide.id,
+      },
+    });
+
+    expect(passengers).toHaveLength(1);
+  });
 });
