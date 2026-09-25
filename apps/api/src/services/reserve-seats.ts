@@ -16,6 +16,8 @@ const ACTIVE_PASSENGER_STATUSES = [
 type ReserveSeatsInput = {
   rideId: string;
   passengerId: string;
+  pickupZone: DhakaZone;
+  destinationZone: DhakaZone;
   seats: number;
   farePoisha: number;
 };
@@ -23,6 +25,8 @@ type ReserveSeatsInput = {
 export async function reserveSeats({
   rideId,
   passengerId,
+  pickupZone,
+  destinationZone,
   seats,
   farePoisha,
 }: ReserveSeatsInput) {
@@ -34,21 +38,21 @@ export async function reserveSeats({
     throw new Error("Fare must be a non-negative integer");
   }
 
+  if (pickupZone === destinationZone) {
+    throw new Error("Pickup and destination must be different");
+  }
+
   return prisma.$transaction(async (tx) => {
     const rides = await tx.$queryRaw<
       Array<{
         id: string;
         vehicleId: string | null;
-        pickupZone: DhakaZone;
-        destinationZone: DhakaZone;
         status: RideStatus;
       }>
     >`
       SELECT
         "id",
         "vehicleId",
-        "pickupZone",
-        "destinationZone",
         "status"
       FROM "Ride"
       WHERE "id" = ${rideId}
@@ -114,8 +118,8 @@ export async function reserveSeats({
       data: {
         rideId,
         passengerId,
-        pickupZone: ride.pickupZone,
-        destinationZone: ride.destinationZone,
+        pickupZone,
+        destinationZone,
         seats,
         farePoisha,
       },

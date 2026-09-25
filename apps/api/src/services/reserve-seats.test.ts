@@ -77,7 +77,7 @@ describe("reserveSeats", () => {
         driverId: driver.id,
         vehicleId: vehicle.id,
         pickupZone: "BANANI",
-        destinationZone: "MOHAKHALI",
+        destinationZone: "GULSHAN_1",
         status: "REQUESTED",
       },
     });
@@ -99,7 +99,7 @@ describe("reserveSeats", () => {
           rideId: ride.id,
           passengerId: passengerTwo.id,
           pickupZone: "BANANI",
-          destinationZone: "MOHAKHALI",
+          destinationZone: "GULSHAN_1",
           seats: 1,
           farePoisha: 5000,
           status: "ACCEPTED",
@@ -110,17 +110,23 @@ describe("reserveSeats", () => {
     const reservation = await reserveSeats({
       rideId: ride.id,
       passengerId: passengerThree.id,
+      pickupZone: "BANANI",
+      destinationZone: "GULSHAN_1",
       seats: 1,
       farePoisha: 4000,
     });
 
     expect(reservation.passengerId).toBe(passengerThree.id);
+    expect(reservation.pickupZone).toBe("BANANI");
+    expect(reservation.destinationZone).toBe("GULSHAN_1");
     expect(reservation.seats).toBe(1);
 
     await expect(
       reserveSeats({
         rideId: ride.id,
         passengerId: passengerOne.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
         seats: 1,
         farePoisha: 4000,
       }),
@@ -194,7 +200,7 @@ describe("reserveSeats", () => {
         driverId: driver.id,
         vehicleId: vehicle.id,
         pickupZone: "BANANI",
-        destinationZone: "MOHAKHALI",
+        destinationZone: "GULSHAN_1",
         status: "REQUESTED",
       },
     });
@@ -216,7 +222,7 @@ describe("reserveSeats", () => {
           rideId: ride.id,
           passengerId: existingPassengerTwo.id,
           pickupZone: "BANANI",
-          destinationZone: "MOHAKHALI",
+          destinationZone: "GULSHAN_1",
           seats: 1,
           farePoisha: 5000,
           status: "ACCEPTED",
@@ -228,12 +234,16 @@ describe("reserveSeats", () => {
       reserveSeats({
         rideId: ride.id,
         passengerId: passengerOne.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
         seats: 1,
         farePoisha: 4000,
       }),
       reserveSeats({
         rideId: ride.id,
         passengerId: passengerTwo.id,
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
         seats: 1,
         farePoisha: 4000,
       }),
@@ -265,5 +275,18 @@ describe("reserveSeats", () => {
     );
 
     expect(totalSeats).toBe(3);
+  });
+
+  it("rejects a request with the same pickup and destination", async () => {
+    await expect(
+      reserveSeats({
+        rideId: "unused-ride",
+        passengerId: "unused-passenger",
+        pickupZone: "BANANI",
+        destinationZone: "BANANI",
+        seats: 1,
+        farePoisha: 4000,
+      }),
+    ).rejects.toThrow("Pickup and destination must be different");
   });
 });
