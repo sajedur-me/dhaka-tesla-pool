@@ -1,5 +1,6 @@
 import type {
   DhakaZone,
+  RidePassengerStatus,
   RideStatus,
   VehicleStatus,
 } from "../generated/prisma/client.js";
@@ -18,11 +19,32 @@ const ACTIVE_PASSENGER_STATUSES = [
 const OPEN_POOL_STATUSES = [
   "REQUESTED",
   "MATCHED",
+  "ACCEPTED",
 ] as const;
 
 type MatchRideRequestInput = {
   requestRideId: string;
 };
+
+function getJoinedPassengerStatus(
+  rideStatus: RideStatus,
+): RidePassengerStatus {
+  if (rideStatus === "ACCEPTED") {
+    return "ACCEPTED";
+  }
+
+  return "MATCHED";
+}
+
+function getPoolStatusAfterMatch(
+  rideStatus: RideStatus,
+): RideStatus {
+  if (rideStatus === "ACCEPTED") {
+    return "ACCEPTED";
+  }
+
+  return "MATCHED";
+}
 
 export async function matchRideRequest({
   requestRideId,
@@ -53,15 +75,18 @@ export async function matchRideRequest({
     }
 
     if (requestRide.status !== "REQUESTED") {
-      throw new Error("Ride request is not available for matching");
+      throw new Error(
+        "Ride request is not available for matching",
+      );
     }
 
-    const requestMembership = await tx.ridePassenger.findFirst({
-      where: {
-        rideId: requestRide.id,
-        status: "REQUESTED",
-      },
-    });
+    const requestMembership =
+      await tx.ridePassenger.findFirst({
+        where: {
+          rideId: requestRide.id,
+          status: "REQUESTED",
+        },
+      });
 
     if (!requestMembership) {
       throw new Error("Passenger request not found");
@@ -107,7 +132,8 @@ export async function matchRideRequest({
       const compatible = areRideRequestsCompatible(
         {
           pickupZone: requestMembership.pickupZone,
-          destinationZone: requestMembership.destinationZone,
+          destinationZone:
+            requestMembership.destinationZone,
         },
         {
           pickupZone: ride.pickupZone,
@@ -120,7 +146,8 @@ export async function matchRideRequest({
       }
 
       const occupiedSeats = ride.passengers.reduce(
-        (total, passenger) => total + passenger.seats,
+        (total, passenger) =>
+          total + passenger.seats,
         0,
       );
 
@@ -158,7 +185,8 @@ export async function matchRideRequest({
 
     if (
       !OPEN_POOL_STATUSES.some(
-        (status) => status === lockedCandidate.status,
+        (status) =>
+          status === lockedCandidate.status,
       )
     ) {
       return null;
@@ -166,7 +194,8 @@ export async function matchRideRequest({
 
     if (
       !lockedCandidate.vehicleId ||
-      lockedCandidate.vehicleId !== candidate.vehicleId
+      lockedCandidate.vehicleId !==
+        candidate.vehicleId
     ) {
       return null;
     }
@@ -197,19 +226,21 @@ export async function matchRideRequest({
       return null;
     }
 
-    const occupiedResult = await tx.ridePassenger.aggregate({
-      _sum: {
-        seats: true,
-      },
-      where: {
-        rideId: lockedCandidate.id,
-        status: {
-          in: [...ACTIVE_PASSENGER_STATUSES],
+    const occupiedResult =
+      await tx.ridePassenger.aggregate({
+        _sum: {
+          seats: true,
         },
-      },
-    });
+        where: {
+          rideId: lockedCandidate.id,
+          status: {
+            in: [...ACTIVE_PASSENGER_STATUSES],
+          },
+        },
+      });
 
-    const occupiedSeats = occupiedResult._sum.seats ?? 0;
+    const occupiedSeats =
+      occupiedResult._sum.seats ?? 0;
 
     if (
       occupiedSeats + requestMembership.seats >
@@ -218,22 +249,33 @@ export async function matchRideRequest({
       return null;
     }
 
-    const matchedMembership = await tx.ridePassenger.update({
-      where: {
-        id: requestMembership.id,
-      },
-      data: {
-        rideId: lockedCandidate.id,
-        status: "MATCHED",
-      },
-    });
+    const joinedPassengerStatus =
+      getJoinedPassengerStatus(
+        lockedCandidate.status,
+      );
+
+    const poolStatus =
+      getPoolStatusAfterMatch(
+        lockedCandidate.status,
+      );
+
+    const matchedMembership =
+      await tx.ridePassenger.update({
+        where: {
+          id: requestMembership.id,
+        },
+        data: {
+          rideId: lockedCandidate.id,
+          status: joinedPassengerStatus,
+        },
+      });
 
     await tx.ride.update({
       where: {
         id: lockedCandidate.id,
       },
       data: {
-        status: "MATCHED",
+        status: poolStatus,
       },
     });
 
