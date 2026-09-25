@@ -316,4 +316,318 @@ describe("driver routes", () => {
       error: "Driver vehicle not found",
     });
   });
+
+  it("moves an accepted ride through arrive, start, and complete over HTTP", async () => {
+    const { driver, vehicle, token } =
+      await createDriverWithBullet("ONLINE");
+
+    const { passenger } = await createPassenger();
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+        passengers: {
+          create: {
+            passengerId: passenger.id,
+            pickupZone: "BANANI",
+            destinationZone: "MOHAKHALI",
+            seats: 1,
+            farePoisha: 8_800,
+            status: "ACCEPTED",
+          },
+        },
+      },
+    });
+
+    const arriveResponse = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/arrive`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(arriveResponse.statusCode).toBe(200);
+    expect(arriveResponse.json().ride.status).toBe(
+      "DRIVER_ARRIVED",
+    );
+
+    let storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedVehicle.status).toBe("ONLINE");
+
+    const startResponse = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/start`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(startResponse.statusCode).toBe(200);
+    expect(startResponse.json().ride.status).toBe(
+      "STARTED",
+    );
+
+    let storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
+
+    expect(storedRide.startedAt).not.toBeNull();
+
+    storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedVehicle.status).toBe("ON_RIDE");
+
+    const startedPassenger =
+      await prisma.ridePassenger.findFirstOrThrow({
+        where: {
+          rideId: ride.id,
+          passengerId: passenger.id,
+        },
+      });
+
+    expect(startedPassenger.status).toBe("STARTED");
+
+    const completeResponse = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/complete`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(completeResponse.statusCode).toBe(200);
+    expect(completeResponse.json().ride.status).toBe(
+      "COMPLETED",
+    );
+
+    storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
+
+    expect(storedRide.completedAt).not.toBeNull();
+
+    storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedVehicle.status).toBe("ONLINE");
+
+    const completedPassenger =
+      await prisma.ridePassenger.findFirstOrThrow({
+        where: {
+          rideId: ride.id,
+          passengerId: passenger.id,
+        },
+      });
+
+    expect(completedPassenger.status).toBe(
+      "COMPLETED",
+    );
+  });
+
+  it("rejects lifecycle actions from an unauthenticated client", async () => {
+    const { driver, vehicle } =
+      await createDriverWithBullet("ONLINE");
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/arrive`,
+    });
+
+    expect(response.statusCode).toBe(401);
+    expect(response.json()).toEqual({
+      error: "Unauthorized",
+    });
+  });
+
+  it("rejects lifecycle actions from a passenger", async () => {
+    const { driver, vehicle } =
+      await createDriverWithBullet("ONLINE");
+
+    const { token } = await createPassenger();
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/arrive`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json()).toEqual({
+      error: "Forbidden",
+    });
+  });
+
+  it("rejects an invalid ride ID for lifecycle actions", async () => {
+    const { token } =
+      await createDriverWithBullet("ONLINE");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/driver/rides/not-a-uuid/arrive",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json()).toEqual({
+      error: "Invalid ride ID",
+    });
+  });
+
+  it("returns 404 when the lifecycle ride does not exist", async () => {
+    const { token } =
+      await createDriverWithBullet("ONLINE");
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/driver/rides/00000000-0000-4000-8000-000000000000/arrive",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "Ride not found",
+    });
+  });
+
+  it("does not expose another driver's assigned ride", async () => {
+    const { driver, vehicle } =
+      await createDriverWithBullet("ONLINE");
+
+    const otherDriver = await prisma.user.create({
+      data: {
+        name: "Other Driver",
+        email: "other-driver@example.com",
+        passwordHash: "test-password-hash",
+        role: "DRIVER",
+      },
+    });
+
+    const otherToken = app.jwt.sign({
+      sub: otherDriver.id,
+      role: "DRIVER",
+    });
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/arrive`,
+      headers: {
+        authorization: `Bearer ${otherToken}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json()).toEqual({
+      error: "Driver is not assigned to this ride",
+    });
+  });
+
+  it("rejects an invalid driver lifecycle transition", async () => {
+    const { driver, vehicle, token } =
+      await createDriverWithBullet("ONLINE");
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+      },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: `/driver/rides/${ride.id}/complete`,
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json()).toEqual({
+      error:
+        "Invalid driver ride transition: ACCEPTED -> COMPLETED",
+    });
+
+    const storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
+
+    expect(storedRide.status).toBe("ACCEPTED");
+    expect(storedRide.completedAt).toBeNull();
+
+    const storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedVehicle.status).toBe("ONLINE");
+  });
 });

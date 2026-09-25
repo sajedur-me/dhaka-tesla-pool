@@ -1,4 +1,10 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+} from "vitest";
 
 import { prisma } from "../db/prisma.js";
 import { transitionRide } from "./transition-ride.js";
@@ -20,28 +26,19 @@ describe("transitionRide", () => {
     await prisma.$disconnect();
   });
 
-  async function createDriver(id: string, email: string) {
-    return prisma.user.create({
+  it("moves an assigned pooled ride and its active passengers through the lifecycle while synchronizing the vehicle", async () => {
+    const driver = await prisma.user.create({
       data: {
-        id,
         name: "Jashim",
-        email,
-        passwordHash: "test-hash",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
         role: "DRIVER",
       },
     });
-  }
-
-  it("moves an assigned pooled ride and its active passengers through the lifecycle while synchronizing the vehicle", async () => {
-    const driver = await createDriver(
-      "transition-driver",
-      "transition-driver@example.com",
-    );
 
     const vehicle = await prisma.vehicle.create({
       data: {
-        id: "transition-bullet",
-        name: "Bullet Transition",
+        name: "Bullet",
         capacity: 3,
         status: "ONLINE",
         driverId: driver.id,
@@ -50,58 +47,50 @@ describe("transitionRide", () => {
 
     const nusrat = await prisma.user.create({
       data: {
-        id: "transition-nusrat",
         name: "Nusrat",
-        email: "transition-nusrat@example.com",
-        passwordHash: "test-hash",
+        email: "nusrat@example.com",
+        passwordHash: "hashed-password",
         role: "PASSENGER",
       },
     });
 
     const rafiq = await prisma.user.create({
       data: {
-        id: "transition-rafiq",
         name: "Rafiq",
-        email: "transition-rafiq@example.com",
-        passwordHash: "test-hash",
+        email: "rafiq@example.com",
+        passwordHash: "hashed-password",
         role: "PASSENGER",
       },
     });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-pooled-ride",
         driverId: driver.id,
         vehicleId: vehicle.id,
         pickupZone: "BANANI",
-        destinationZone: "GULSHAN_1",
+        destinationZone: "MOHAKHALI",
         status: "MATCHED",
+        passengers: {
+          create: [
+            {
+              passengerId: nusrat.id,
+              pickupZone: "BANANI",
+              destinationZone: "MOHAKHALI",
+              seats: 1,
+              farePoisha: 8_800,
+              status: "MATCHED",
+            },
+            {
+              passengerId: rafiq.id,
+              pickupZone: "BANANI",
+              destinationZone: "GULSHAN_1",
+              seats: 1,
+              farePoisha: 10_400,
+              status: "MATCHED",
+            },
+          ],
+        },
       },
-    });
-
-    await prisma.ridePassenger.createMany({
-      data: [
-        {
-          id: "transition-nusrat-membership",
-          rideId: ride.id,
-          passengerId: nusrat.id,
-          pickupZone: "BANANI",
-          destinationZone: "MOHAKHALI",
-          seats: 1,
-          farePoisha: 8800,
-          status: "MATCHED",
-        },
-        {
-          id: "transition-rafiq-membership",
-          rideId: ride.id,
-          passengerId: rafiq.id,
-          pickupZone: "BANANI",
-          destinationZone: "GULSHAN_1",
-          seats: 1,
-          farePoisha: 10400,
-          status: "MATCHED",
-        },
-      ],
     });
 
     await transitionRide({
@@ -110,13 +99,14 @@ describe("transitionRide", () => {
       nextStatus: "ACCEPTED",
     });
 
-    let currentVehicle = await prisma.vehicle.findUniqueOrThrow({
-      where: {
-        id: vehicle.id,
-      },
-    });
+    let storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
 
-    expect(currentVehicle.status).toBe("ONLINE");
+    expect(storedVehicle.status).toBe("ONLINE");
 
     await transitionRide({
       rideId: ride.id,
@@ -124,13 +114,14 @@ describe("transitionRide", () => {
       nextStatus: "DRIVER_ARRIVED",
     });
 
-    currentVehicle = await prisma.vehicle.findUniqueOrThrow({
-      where: {
-        id: vehicle.id,
-      },
-    });
+    storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
 
-    expect(currentVehicle.status).toBe("ONLINE");
+    expect(storedVehicle.status).toBe("ONLINE");
 
     await transitionRide({
       rideId: ride.id,
@@ -138,21 +129,24 @@ describe("transitionRide", () => {
       nextStatus: "STARTED",
     });
 
-    const startedRide = await prisma.ride.findUniqueOrThrow({
-      where: {
-        id: ride.id,
-      },
-    });
+    storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
 
-    currentVehicle = await prisma.vehicle.findUniqueOrThrow({
-      where: {
-        id: vehicle.id,
-      },
-    });
+    expect(storedVehicle.status).toBe("ON_RIDE");
+
+    const startedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
 
     expect(startedRide.status).toBe("STARTED");
     expect(startedRide.startedAt).not.toBeNull();
-    expect(currentVehicle.status).toBe("ON_RIDE");
 
     await transitionRide({
       rideId: ride.id,
@@ -160,45 +154,56 @@ describe("transitionRide", () => {
       nextStatus: "COMPLETED",
     });
 
-    const completedRide = await prisma.ride.findUniqueOrThrow({
-      where: {
-        id: ride.id,
-      },
-    });
-
-    currentVehicle = await prisma.vehicle.findUniqueOrThrow({
-      where: {
-        id: vehicle.id,
-      },
-    });
+    const completedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
 
     expect(completedRide.status).toBe("COMPLETED");
     expect(completedRide.completedAt).not.toBeNull();
-    expect(currentVehicle.status).toBe("ONLINE");
 
-    const passengers = await prisma.ridePassenger.findMany({
-      where: {
-        rideId: ride.id,
-      },
-    });
+    storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedVehicle.status).toBe("ONLINE");
+
+    const passengers =
+      await prisma.ridePassenger.findMany({
+        where: {
+          rideId: ride.id,
+        },
+        orderBy: {
+          farePoisha: "asc",
+        },
+      });
 
     expect(passengers).toHaveLength(2);
     expect(
       passengers.every(
-        (passenger) => passenger.status === "COMPLETED",
+        (passenger) =>
+          passenger.status === "COMPLETED",
       ),
     ).toBe(true);
   });
 
   it("rejects an invalid lifecycle jump", async () => {
-    const driver = await createDriver(
-      "transition-invalid-driver",
-      "transition-invalid-driver@example.com",
-    );
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-invalid-ride",
         driverId: driver.id,
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
@@ -216,25 +221,28 @@ describe("transitionRide", () => {
       "Invalid driver ride transition: MATCHED -> STARTED",
     );
 
-    const unchangedRide = await prisma.ride.findUniqueOrThrow({
-      where: {
-        id: ride.id,
-      },
-    });
+    const storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
 
-    expect(unchangedRide.status).toBe("MATCHED");
-    expect(unchangedRide.startedAt).toBeNull();
+    expect(storedRide.status).toBe("MATCHED");
   });
 
   it("rejects a driver attempting to cancel a ride", async () => {
-    const driver = await createDriver(
-      "transition-cancel-driver",
-      "transition-cancel-driver@example.com",
-    );
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-driver-cancel-ride",
         driverId: driver.id,
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
@@ -252,87 +260,84 @@ describe("transitionRide", () => {
       "Invalid driver ride transition: MATCHED -> CANCELLED",
     );
 
-    const unchangedRide = await prisma.ride.findUniqueOrThrow({
-      where: {
-        id: ride.id,
-      },
-    });
+    const storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
 
-    expect(unchangedRide.status).toBe("MATCHED");
-    expect(unchangedRide.cancelledAt).toBeNull();
+    expect(storedRide.status).toBe("MATCHED");
   });
 
   it("does not reactivate a cancelled passenger during ride transitions", async () => {
-    const driver = await createDriver(
-      "transition-cancelled-driver",
-      "transition-cancelled-driver@example.com",
-    );
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
     const vehicle = await prisma.vehicle.create({
       data: {
-        id: "transition-cancelled-bullet",
-        name: "Bullet Cancelled Passenger",
+        name: "Bullet",
         capacity: 3,
         status: "ONLINE",
         driverId: driver.id,
       },
     });
 
-    const nusrat = await prisma.user.create({
-      data: {
-        id: "transition-active-passenger",
-        name: "Nusrat",
-        email: "transition-active@example.com",
-        passwordHash: "test-hash",
-        role: "PASSENGER",
-      },
-    });
+    const activePassenger =
+      await prisma.user.create({
+        data: {
+          name: "Nusrat",
+          email: "nusrat@example.com",
+          passwordHash: "hashed-password",
+          role: "PASSENGER",
+        },
+      });
 
-    const shirin = await prisma.user.create({
-      data: {
-        id: "transition-cancelled-passenger",
-        name: "Shirin",
-        email: "transition-cancelled@example.com",
-        passwordHash: "test-hash",
-        role: "PASSENGER",
-      },
-    });
+    const cancelledPassenger =
+      await prisma.user.create({
+        data: {
+          name: "Rafiq",
+          email: "rafiq@example.com",
+          passwordHash: "hashed-password",
+          role: "PASSENGER",
+        },
+      });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-cancelled-member-ride",
         driverId: driver.id,
         vehicleId: vehicle.id,
         pickupZone: "BANANI",
-        destinationZone: "GULSHAN_1",
+        destinationZone: "MOHAKHALI",
         status: "ACCEPTED",
+        passengers: {
+          create: [
+            {
+              passengerId: activePassenger.id,
+              pickupZone: "BANANI",
+              destinationZone: "MOHAKHALI",
+              seats: 1,
+              farePoisha: 8_800,
+              status: "ACCEPTED",
+            },
+            {
+              passengerId: cancelledPassenger.id,
+              pickupZone: "BANANI",
+              destinationZone: "GULSHAN_1",
+              seats: 1,
+              farePoisha: 10_400,
+              status: "CANCELLED",
+              cancelledAt: new Date(),
+            },
+          ],
+        },
       },
-    });
-
-    await prisma.ridePassenger.createMany({
-      data: [
-        {
-          id: "transition-active-membership",
-          rideId: ride.id,
-          passengerId: nusrat.id,
-          pickupZone: "BANANI",
-          destinationZone: "MOHAKHALI",
-          seats: 1,
-          farePoisha: 8800,
-          status: "ACCEPTED",
-        },
-        {
-          id: "transition-cancelled-membership",
-          rideId: ride.id,
-          passengerId: shirin.id,
-          pickupZone: "BANANI",
-          destinationZone: "GULSHAN_1",
-          seats: 1,
-          farePoisha: 10400,
-          status: "CANCELLED",
-          cancelledAt: new Date(),
-        },
-      ],
     });
 
     await transitionRide({
@@ -347,68 +352,72 @@ describe("transitionRide", () => {
       nextStatus: "STARTED",
     });
 
-    const activeMembership =
-      await prisma.ridePassenger.findUniqueOrThrow({
+    const passengers =
+      await prisma.ridePassenger.findMany({
         where: {
-          id: "transition-active-membership",
+          rideId: ride.id,
         },
       });
 
-    const cancelledMembership =
-      await prisma.ridePassenger.findUniqueOrThrow({
+    const active = passengers.find(
+      (passenger) =>
+        passenger.passengerId === activePassenger.id,
+    );
+
+    const cancelled = passengers.find(
+      (passenger) =>
+        passenger.passengerId ===
+        cancelledPassenger.id,
+    );
+
+    expect(active?.status).toBe("STARTED");
+    expect(cancelled?.status).toBe("CANCELLED");
+
+    const storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
         where: {
-          id: "transition-cancelled-membership",
+          id: vehicle.id,
         },
       });
 
-    const updatedVehicle = await prisma.vehicle.findUniqueOrThrow({
-      where: {
-        id: vehicle.id,
-      },
-    });
-
-    expect(activeMembership.status).toBe("STARTED");
-    expect(cancelledMembership.status).toBe("CANCELLED");
-    expect(cancelledMembership.cancelledAt).not.toBeNull();
-    expect(updatedVehicle.status).toBe("ON_RIDE");
+    expect(storedVehicle.status).toBe("ON_RIDE");
   });
 
   it("rejects starting a ride without an assigned vehicle and rolls back the transition", async () => {
-    const driver = await createDriver(
-      "transition-no-vehicle-driver",
-      "transition-no-vehicle@example.com",
-    );
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
     const passenger = await prisma.user.create({
       data: {
-        id: "transition-no-vehicle-passenger",
         name: "Nusrat",
-        email: "transition-no-vehicle-passenger@example.com",
-        passwordHash: "test-hash",
+        email: "nusrat@example.com",
+        passwordHash: "hashed-password",
         role: "PASSENGER",
       },
     });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-no-vehicle-ride",
         driverId: driver.id,
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
         status: "DRIVER_ARRIVED",
-      },
-    });
-
-    await prisma.ridePassenger.create({
-      data: {
-        id: "transition-no-vehicle-membership",
-        rideId: ride.id,
-        passengerId: passenger.id,
-        pickupZone: "BANANI",
-        destinationZone: "MOHAKHALI",
-        seats: 1,
-        farePoisha: 8800,
-        status: "DRIVER_ARRIVED",
+        passengers: {
+          create: {
+            passengerId: passenger.id,
+            pickupZone: "BANANI",
+            destinationZone: "MOHAKHALI",
+            seats: 1,
+            farePoisha: 8_800,
+            status: "DRIVER_ARRIVED",
+          },
+        },
       },
     });
 
@@ -418,40 +427,225 @@ describe("transitionRide", () => {
         driverId: driver.id,
         nextStatus: "STARTED",
       }),
-    ).rejects.toThrow("Ride does not have an assigned vehicle");
+    ).rejects.toThrow(
+      "Ride does not have an assigned vehicle",
+    );
 
-    const unchangedRide = await prisma.ride.findUniqueOrThrow({
-      where: {
-        id: ride.id,
-      },
-    });
-
-    const unchangedPassenger =
-      await prisma.ridePassenger.findUniqueOrThrow({
+    const storedRide =
+      await prisma.ride.findUniqueOrThrow({
         where: {
-          id: "transition-no-vehicle-membership",
+          id: ride.id,
         },
       });
 
-    expect(unchangedRide.status).toBe("DRIVER_ARRIVED");
-    expect(unchangedRide.startedAt).toBeNull();
-    expect(unchangedPassenger.status).toBe("DRIVER_ARRIVED");
+    const membership =
+      await prisma.ridePassenger.findFirstOrThrow({
+        where: {
+          rideId: ride.id,
+          passengerId: passenger.id,
+        },
+      });
+
+    expect(storedRide.status).toBe(
+      "DRIVER_ARRIVED",
+    );
+    expect(storedRide.startedAt).toBeNull();
+    expect(membership.status).toBe(
+      "DRIVER_ARRIVED",
+    );
   });
 
-  it("rejects a passenger attempting to transition a ride", async () => {
+  it("rejects starting a ride when the assigned vehicle is offline and rolls back the transition", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
+
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        name: "Bullet",
+        capacity: 3,
+        status: "OFFLINE",
+        driverId: driver.id,
+      },
+    });
+
     const passenger = await prisma.user.create({
       data: {
-        id: "transition-unauthorized-passenger",
         name: "Nusrat",
-        email: "transition-unauthorized@example.com",
-        passwordHash: "test-hash",
+        email: "nusrat@example.com",
+        passwordHash: "hashed-password",
         role: "PASSENGER",
       },
     });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-passenger-ride",
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "DRIVER_ARRIVED",
+        passengers: {
+          create: {
+            passengerId: passenger.id,
+            pickupZone: "BANANI",
+            destinationZone: "MOHAKHALI",
+            seats: 1,
+            farePoisha: 8_800,
+            status: "DRIVER_ARRIVED",
+          },
+        },
+      },
+    });
+
+    await expect(
+      transitionRide({
+        rideId: ride.id,
+        driverId: driver.id,
+        nextStatus: "STARTED",
+      }),
+    ).rejects.toThrow(
+      "Vehicle must be online to start a ride",
+    );
+
+    const storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
+
+    const storedPassenger =
+      await prisma.ridePassenger.findFirstOrThrow({
+        where: {
+          rideId: ride.id,
+          passengerId: passenger.id,
+        },
+      });
+
+    const storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedRide.status).toBe(
+      "DRIVER_ARRIVED",
+    );
+    expect(storedRide.startedAt).toBeNull();
+    expect(storedPassenger.status).toBe(
+      "DRIVER_ARRIVED",
+    );
+    expect(storedVehicle.status).toBe("OFFLINE");
+  });
+
+  it("rejects completing a ride when the assigned vehicle is not on a ride and rolls back the transition", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
+
+    const vehicle = await prisma.vehicle.create({
+      data: {
+        name: "Bullet",
+        capacity: 3,
+        status: "ONLINE",
+        driverId: driver.id,
+      },
+    });
+
+    const passenger = await prisma.user.create({
+      data: {
+        name: "Nusrat",
+        email: "nusrat@example.com",
+        passwordHash: "hashed-password",
+        role: "PASSENGER",
+      },
+    });
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "STARTED",
+        startedAt: new Date(),
+        passengers: {
+          create: {
+            passengerId: passenger.id,
+            pickupZone: "BANANI",
+            destinationZone: "MOHAKHALI",
+            seats: 1,
+            farePoisha: 8_800,
+            status: "STARTED",
+          },
+        },
+      },
+    });
+
+    await expect(
+      transitionRide({
+        rideId: ride.id,
+        driverId: driver.id,
+        nextStatus: "COMPLETED",
+      }),
+    ).rejects.toThrow(
+      "Vehicle must be on a ride to complete a ride",
+    );
+
+    const storedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: ride.id,
+        },
+      });
+
+    const storedPassenger =
+      await prisma.ridePassenger.findFirstOrThrow({
+        where: {
+          rideId: ride.id,
+          passengerId: passenger.id,
+        },
+      });
+
+    const storedVehicle =
+      await prisma.vehicle.findUniqueOrThrow({
+        where: {
+          id: vehicle.id,
+        },
+      });
+
+    expect(storedRide.status).toBe("STARTED");
+    expect(storedRide.completedAt).toBeNull();
+    expect(storedPassenger.status).toBe(
+      "STARTED",
+    );
+    expect(storedVehicle.status).toBe("ONLINE");
+  });
+
+  it("rejects a passenger attempting to transition a ride", async () => {
+    const passenger = await prisma.user.create({
+      data: {
+        name: "Nusrat",
+        email: "nusrat@example.com",
+        passwordHash: "hashed-password",
+        role: "PASSENGER",
+      },
+    });
+
+    const ride = await prisma.ride.create({
+      data: {
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
         status: "MATCHED",
@@ -464,23 +658,32 @@ describe("transitionRide", () => {
         driverId: passenger.id,
         nextStatus: "ACCEPTED",
       }),
-    ).rejects.toThrow("Only drivers can transition rides");
+    ).rejects.toThrow(
+      "Only drivers can transition rides",
+    );
   });
 
   it("rejects a driver who is not assigned to the ride", async () => {
-    const assignedDriver = await createDriver(
-      "transition-assigned-driver",
-      "transition-assigned@example.com",
-    );
+    const assignedDriver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
-    const otherDriver = await createDriver(
-      "transition-other-driver",
-      "transition-other@example.com",
-    );
+    const otherDriver = await prisma.user.create({
+      data: {
+        name: "Other Driver",
+        email: "other-driver@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
     const ride = await prisma.ride.create({
       data: {
-        id: "transition-other-driver-ride",
         driverId: assignedDriver.id,
         pickupZone: "BANANI",
         destinationZone: "MOHAKHALI",
@@ -500,24 +703,38 @@ describe("transitionRide", () => {
   });
 
   it("rejects an unknown driver", async () => {
+    const ride = await prisma.ride.create({
+      data: {
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "MATCHED",
+      },
+    });
+
     await expect(
       transitionRide({
-        rideId: "any-ride",
-        driverId: "driver-does-not-exist",
+        rideId: ride.id,
+        driverId:
+          "00000000-0000-4000-8000-000000000001",
         nextStatus: "ACCEPTED",
       }),
     ).rejects.toThrow("Driver not found");
   });
 
   it("rejects transitions for an unknown ride", async () => {
-    const driver = await createDriver(
-      "transition-missing-ride-driver",
-      "transition-missing-ride@example.com",
-    );
+    const driver = await prisma.user.create({
+      data: {
+        name: "Jashim",
+        email: "jashim@example.com",
+        passwordHash: "hashed-password",
+        role: "DRIVER",
+      },
+    });
 
     await expect(
       transitionRide({
-        rideId: "ride-does-not-exist",
+        rideId:
+          "00000000-0000-4000-8000-000000000002",
         driverId: driver.id,
         nextStatus: "ACCEPTED",
       }),

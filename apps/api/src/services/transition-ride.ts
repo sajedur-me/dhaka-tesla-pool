@@ -26,8 +26,9 @@ function canDriverTransitionRide(
   nextStatus: RideStatus,
 ): boolean {
   return (
-    DRIVER_RIDE_TRANSITIONS[currentStatus]?.includes(nextStatus) ??
-    false
+    DRIVER_RIDE_TRANSITIONS[currentStatus]?.includes(
+      nextStatus,
+    ) ?? false
   );
 }
 
@@ -66,7 +67,9 @@ export async function transitionRide({
     }
 
     if (driver.role !== "DRIVER") {
-      throw new Error("Only drivers can transition rides");
+      throw new Error(
+        "Only drivers can transition rides",
+      );
     }
 
     const rides = await tx.$queryRaw<
@@ -94,12 +97,17 @@ export async function transitionRide({
     }
 
     if (ride.driverId !== driver.id) {
-      throw new Error("Driver is not assigned to this ride");
+      throw new Error(
+        "Driver is not assigned to this ride",
+      );
     }
 
     if (
       !canTransitionRide(ride.status, nextStatus) ||
-      !canDriverTransitionRide(ride.status, nextStatus)
+      !canDriverTransitionRide(
+        ride.status,
+        nextStatus,
+      )
     ) {
       throw new Error(
         `Invalid driver ride transition: ${ride.status} -> ${nextStatus}`,
@@ -111,7 +119,9 @@ export async function transitionRide({
 
     if (vehicleStatus !== null) {
       if (!ride.vehicleId) {
-        throw new Error("Ride does not have an assigned vehicle");
+        throw new Error(
+          "Ride does not have an assigned vehicle",
+        );
       }
 
       const vehicles = await tx.$queryRaw<
@@ -133,12 +143,32 @@ export async function transitionRide({
       const vehicle = vehicles[0];
 
       if (!vehicle) {
-        throw new Error("Assigned vehicle not found");
+        throw new Error(
+          "Assigned vehicle not found",
+        );
       }
 
       if (vehicle.driverId !== driver.id) {
         throw new Error(
           "Assigned vehicle does not belong to the driver",
+        );
+      }
+
+      if (
+        nextStatus === "STARTED" &&
+        vehicle.status !== "ONLINE"
+      ) {
+        throw new Error(
+          "Vehicle must be online to start a ride",
+        );
+      }
+
+      if (
+        nextStatus === "COMPLETED" &&
+        vehicle.status !== "ON_RIDE"
+      ) {
+        throw new Error(
+          "Vehicle must be on a ride to complete a ride",
         );
       }
 
