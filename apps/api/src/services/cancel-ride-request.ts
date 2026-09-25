@@ -1,3 +1,5 @@
+import type { RideStatus } from "../generated/prisma/client.js";
+
 import { prisma } from "../db/prisma.js";
 
 const CANCELLABLE_STATUSES = [
@@ -17,6 +19,26 @@ export async function cancelRideRequest({
   rideId,
 }: CancelRideRequestInput) {
   return prisma.$transaction(async (tx) => {
+    const rides = await tx.$queryRaw<
+      Array<{
+        id: string;
+        status: RideStatus;
+      }>
+    >`
+      SELECT
+        "id",
+        "status"
+      FROM "Ride"
+      WHERE "id" = ${rideId}
+      FOR UPDATE
+    `;
+
+    const ride = rides[0];
+
+    if (!ride) {
+      throw new Error("Ride not found");
+    }
+
     const memberships = await tx.$queryRaw<
       Array<{
         id: string;
@@ -56,13 +78,15 @@ export async function cancelRideRequest({
       );
     }
 
+    const timestamp = new Date();
+
     const cancelledMembership = await tx.ridePassenger.update({
       where: {
         id: membership.id,
       },
       data: {
         status: "CANCELLED",
-        cancelledAt: new Date(),
+        cancelledAt: timestamp,
       },
     });
 
@@ -78,11 +102,11 @@ export async function cancelRideRequest({
     if (activePassengerCount === 0) {
       await tx.ride.update({
         where: {
-          id: rideId,
+          id: ride.id,
         },
         data: {
           status: "CANCELLED",
-          cancelledAt: new Date(),
+          cancelledAt: timestamp,
         },
       });
     }

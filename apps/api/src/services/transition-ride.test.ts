@@ -172,7 +172,7 @@ describe("transitionRide", () => {
         nextStatus: "STARTED",
       }),
     ).rejects.toThrow(
-      "Invalid ride transition: MATCHED -> STARTED",
+      "Invalid driver ride transition: MATCHED -> STARTED",
     );
 
     const unchangedRide = await prisma.ride.findUniqueOrThrow({
@@ -183,6 +183,42 @@ describe("transitionRide", () => {
 
     expect(unchangedRide.status).toBe("MATCHED");
     expect(unchangedRide.startedAt).toBeNull();
+  });
+
+  it("rejects a driver attempting to cancel a ride", async () => {
+    const driver = await createDriver(
+      "transition-cancel-driver",
+      "transition-cancel-driver@example.com",
+    );
+
+    const ride = await prisma.ride.create({
+      data: {
+        id: "transition-driver-cancel-ride",
+        driverId: driver.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "MATCHED",
+      },
+    });
+
+    await expect(
+      transitionRide({
+        rideId: ride.id,
+        driverId: driver.id,
+        nextStatus: "CANCELLED",
+      }),
+    ).rejects.toThrow(
+      "Invalid driver ride transition: MATCHED -> CANCELLED",
+    );
+
+    const unchangedRide = await prisma.ride.findUniqueOrThrow({
+      where: {
+        id: ride.id,
+      },
+    });
+
+    expect(unchangedRide.status).toBe("MATCHED");
+    expect(unchangedRide.cancelledAt).toBeNull();
   });
 
   it("does not reactivate a cancelled passenger during ride transitions", async () => {

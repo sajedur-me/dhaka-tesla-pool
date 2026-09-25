@@ -2,6 +2,7 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 
 import { prisma } from "../db/prisma.js";
 import { cancelRideRequest } from "./cancel-ride-request.js";
+import { transitionRide } from "./transition-ride.js";
 
 describe("cancelRideRequest", () => {
   beforeEach(async () => {
@@ -250,5 +251,93 @@ describe("cancelRideRequest", () => {
     });
 
     expect(activeSeats._sum.seats ?? 0).toBe(0);
+  });
+
+  it("serializes passenger cancellation against a concurrent driver transition", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        id: "cancel-race-driver",
+        name: "Jashim",
+        email: "cancel-race-driver@example.com",
+        passwordHash: "test-hash",
+        role: "DRIVER",
+      },
+    });
+
+    const passenger = await prisma.user.create({
+      data: {
+        id: "cancel-race-passenger",
+        name: "Nusrat",
+        email: "cancel-race-passenger@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const ride = await prisma.ride.create({
+      data: {
+        id: "cancel-race-ride",
+        driverId: driver.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+      },
+    });
+
+    await prisma.ridePassenger.create({
+      data: {
+        id: "cancel-race-membership",
+        rideId: ride.id,
+        passengerId: passenger.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        seats: 1,
+        farePoisha: 8800,
+        status: "ACCEPTED",
+      },
+    });
+
+    const results = await Promise.allSettled([
+      cancelRideRequest({
+        passengerId: passenger.id,
+        rideId: ride.id,
+      }),
+      transitionRide({
+        rideId: ride.id,
+        driverId: driver.id,
+        nextStatus: "DRIVER_ARRIVED",
+      }),
+    ]);
+
+    expect(results).toHaveLength(2);
+
+    const finalRide = await prisma.ride.findUniqueOrThrow({
+      where: {
+        id: ride.id,
+      },
+    });
+
+    const finalMembership =
+      await prisma.ridePassenger.findUniqueOrThrow({
+        where: {
+          id: "cancel-race-membership",
+        },
+      });
+
+    const isCancelledOutcome =
+      finalRide.status === "CANCELLED" &&
+      finalMembership.status === "CANCELLED" &&
+      finalRide.cancelledAt !== null &&
+      finalMembership.cancelledAt !== null;
+
+    const isDriverArrivedOutcome =
+      finalRide.status === "DRIVER_ARRIVED" &&
+      finalMembership.status === "DRIVER_ARRIVED" &&
+      finalRide.cancelledAt === null &&
+      finalMembership.cancelledAt === null;
+
+    expect(
+      isCancelledOutcome || isDriverArrivedOutcome,
+    ).toBe(true);
   });
 });

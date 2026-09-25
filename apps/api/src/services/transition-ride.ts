@@ -3,11 +3,30 @@ import type { RideStatus } from "../generated/prisma/client.js";
 import { prisma } from "../db/prisma.js";
 import { canTransitionRide } from "../domain/ride/can-transition-ride.js";
 
+const DRIVER_RIDE_TRANSITIONS: Partial<
+  Record<RideStatus, readonly RideStatus[]>
+> = {
+  MATCHED: ["ACCEPTED"],
+  ACCEPTED: ["DRIVER_ARRIVED"],
+  DRIVER_ARRIVED: ["STARTED"],
+  STARTED: ["COMPLETED"],
+};
+
 type TransitionRideInput = {
   rideId: string;
   driverId: string;
   nextStatus: RideStatus;
 };
+
+function canDriverTransitionRide(
+  currentStatus: RideStatus,
+  nextStatus: RideStatus,
+): boolean {
+  return (
+    DRIVER_RIDE_TRANSITIONS[currentStatus]?.includes(nextStatus) ??
+    false
+  );
+}
 
 export async function transitionRide({
   rideId,
@@ -59,9 +78,12 @@ export async function transitionRide({
       throw new Error("Driver is not assigned to this ride");
     }
 
-    if (!canTransitionRide(ride.status, nextStatus)) {
+    if (
+      !canTransitionRide(ride.status, nextStatus) ||
+      !canDriverTransitionRide(ride.status, nextStatus)
+    ) {
       throw new Error(
-        `Invalid ride transition: ${ride.status} -> ${nextStatus}`,
+        `Invalid driver ride transition: ${ride.status} -> ${nextStatus}`,
       );
     }
 
@@ -79,9 +101,6 @@ export async function transitionRide({
         ...(nextStatus === "COMPLETED"
           ? { completedAt: timestamp }
           : {}),
-        ...(nextStatus === "CANCELLED"
-          ? { cancelledAt: timestamp }
-          : {}),
       },
     });
 
@@ -94,9 +113,6 @@ export async function transitionRide({
       },
       data: {
         status: nextStatus,
-        ...(nextStatus === "CANCELLED"
-          ? { cancelledAt: timestamp }
-          : {}),
       },
     });
 
