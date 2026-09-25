@@ -2,10 +2,15 @@ import type { DhakaZone } from "../../generated/prisma/client.js";
 
 type RouteKey = `${DhakaZone}:${DhakaZone}`;
 
-const ROUTE_DISTANCES_KM: Partial<Record<RouteKey, number>> = {
+export const ROUTE_DISTANCES_KM: Partial<
+  Record<RouteKey, number>
+> = {
   "BANANI:MOHAKHALI": 3,
   "BANANI:GULSHAN_1": 4,
   "BANANI:GULSHAN_2": 5,
+  "MOHAKHALI:GULSHAN_1": 2,
+  "MOHAKHALI:GULSHAN_2": 3,
+  "GULSHAN_1:GULSHAN_2": 2,
 
   "MIRPUR:FARMGATE": 7,
   "MIRPUR:DHANMONDI": 10,
@@ -13,6 +18,7 @@ const ROUTE_DISTANCES_KM: Partial<Record<RouteKey, number>> = {
 
   "UTTARA:BANANI": 10,
   "UTTARA:BASHUNDHARA": 12,
+  "BANANI:BASHUNDHARA": 5,
 } as const;
 
 type GetRouteDistanceInput = {
