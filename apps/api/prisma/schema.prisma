@@ -1,0 +1,121 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum UserRole {
+  PASSENGER
+  DRIVER
+}
+
+enum VehicleStatus {
+  OFFLINE
+  ONLINE
+  ON_RIDE
+}
+
+enum RideStatus {
+  REQUESTED
+  MATCHED
+  ACCEPTED
+  DRIVER_ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum RidePassengerStatus {
+  REQUESTED
+  MATCHED
+  ACCEPTED
+  DRIVER_ARRIVED
+  STARTED
+  COMPLETED
+  CANCELLED
+}
+
+enum DhakaZone {
+  BANANI
+  GULSHAN_1
+  GULSHAN_2
+  MOHAKHALI
+  DHANMONDI
+  MIRPUR
+  UTTARA
+  FARMGATE
+  BASHUNDHARA
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  role         UserRole
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicle         Vehicle?
+  drivenRides     Ride[]          @relation("RideDriver")
+  rideMemberships RidePassenger[]
+}
+
+model Vehicle {
+  id        String        @id @default(uuid())
+  name      String        @unique
+  capacity  Int
+  status    VehicleStatus @default(OFFLINE)
+  driverId  String        @unique
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  driver User   @relation(fields: [driverId], references: [id])
+  rides  Ride[]
+}
+
+model Ride {
+  id              String     @id @default(uuid())
+  driverId        String?
+  vehicleId       String?
+  pickupZone      DhakaZone
+  destinationZone DhakaZone
+  status          RideStatus @default(REQUESTED)
+  startedAt       DateTime?
+  completedAt     DateTime?
+  cancelledAt     DateTime?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  driver     User?           @relation("RideDriver", fields: [driverId], references: [id])
+  vehicle    Vehicle?        @relation(fields: [vehicleId], references: [id])
+  passengers RidePassenger[]
+
+  @@index([status, pickupZone, destinationZone])
+  @@index([driverId, status])
+  @@index([vehicleId, status])
+}
+
+model RidePassenger {
+  id              String              @id @default(uuid())
+  rideId          String
+  passengerId     String
+  pickupZone      DhakaZone
+  destinationZone DhakaZone
+  seats           Int
+  farePoisha      Int
+  status          RidePassengerStatus @default(REQUESTED)
+  cancelledAt     DateTime?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  ride      Ride @relation(fields: [rideId], references: [id], onDelete: Cascade)
+  passenger User @relation(fields: [passengerId], references: [id])
+
+  @@unique([rideId, passengerId])
+  @@index([passengerId, createdAt])
+  @@index([rideId, status])
+}
