@@ -1,3 +1,4 @@
+import cors from "@fastify/cors";
 import Fastify, {
   type FastifyInstance,
 } from "fastify";
@@ -10,6 +11,10 @@ import { registerPassengerRoutes } from "./routes/passenger.routes.js";
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: true,
+  });
+
+  await app.register(cors, {
+    origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
   });
 
   await registerAuthPlugin(app);
