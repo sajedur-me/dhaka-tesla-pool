@@ -3,6 +3,7 @@ import type { DhakaZone } from "../generated/prisma/client.js";
 import { prisma } from "../db/prisma.js";
 import { calculateFare } from "../domain/fare/calculate-fare.js";
 import { getRouteDistance } from "../domain/fare/get-route-distance.js";
+import { matchRideRequest } from "./match-ride-request.js";
 
 type CreateRideRequestInput = {
   passengerId: string;
@@ -53,30 +54,58 @@ export async function createRideRequest({
     throw new Error("Only passengers can request rides");
   }
 
-  return prisma.$transaction(async (tx) => {
-    const ride = await tx.ride.create({
-      data: {
-        pickupZone,
-        destinationZone,
-        status: "REQUESTED",
-      },
-    });
+  const createdRequest = await prisma.$transaction(
+    async (tx) => {
+      const ride = await tx.ride.create({
+        data: {
+          pickupZone,
+          destinationZone,
+          status: "REQUESTED",
+        },
+      });
 
-    const membership = await tx.ridePassenger.create({
-      data: {
-        rideId: ride.id,
-        passengerId,
-        pickupZone,
-        destinationZone,
-        seats,
-        farePoisha: estimatedFarePoisha,
-        status: "REQUESTED",
-      },
-    });
+      const membership = await tx.ridePassenger.create({
+        data: {
+          rideId: ride.id,
+          passengerId,
+          pickupZone,
+          destinationZone,
+          seats,
+          farePoisha: estimatedFarePoisha,
+          status: "REQUESTED",
+        },
+      });
 
-    return {
-      ride,
-      membership,
-    };
+      return {
+        ride,
+        membership,
+      };
+    },
+  );
+
+  const match = await matchRideRequest({
+    requestRideId: createdRequest.ride.id,
   });
+
+  if (!match) {
+    return createdRequest;
+  }
+
+  const matchedMembership =
+    await prisma.ridePassenger.findUniqueOrThrow({
+      where: {
+        id: createdRequest.membership.id,
+      },
+    });
+
+  const matchedRide = await prisma.ride.findUniqueOrThrow({
+    where: {
+      id: match.rideId,
+    },
+  });
+
+  return {
+    ride: matchedRide,
+    membership: matchedMembership,
+  };
 }

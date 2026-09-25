@@ -13,6 +13,10 @@ import {
   VehicleBusyError,
 } from "../services/driver-errors.js";
 import { getDriverRideRequests } from "../services/get-driver-ride-requests.js";
+import {
+  getDriverActiveRide,
+  getDriverRideHistory,
+} from "../services/get-driver-rides.js";
 import { getDriverVehicle } from "../services/get-driver-vehicle.js";
 import { transitionRide } from "../services/transition-ride.js";
 import { updateDriverVehicleStatus } from "../services/update-driver-vehicle-status.js";
@@ -148,6 +152,44 @@ export async function registerDriverRoutes(
 
         throw error;
       }
+    },
+  );
+
+  app.get(
+    "/driver/rides/active",
+    {
+      preHandler: [
+        app.authenticate,
+        requireRole("DRIVER"),
+      ],
+    },
+    async (request, reply) => {
+      const ride = await getDriverActiveRide({
+        driverId: request.user.sub,
+      });
+
+      return reply.code(200).send({
+        ride,
+      });
+    },
+  );
+
+  app.get(
+    "/driver/rides/history",
+    {
+      preHandler: [
+        app.authenticate,
+        requireRole("DRIVER"),
+      ],
+    },
+    async (request, reply) => {
+      const rides = await getDriverRideHistory({
+        driverId: request.user.sub,
+      });
+
+      return reply.code(200).send({
+        rides,
+      });
     },
   );
 
