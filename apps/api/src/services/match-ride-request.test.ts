@@ -531,7 +531,7 @@ describe("matchRideRequest", () => {
     expect(passengers).toHaveLength(1);
   });
 
-  it("does not add a passenger after the driver has accepted the pool", async () => {
+  it("adds a compatible passenger to an accepted pool without regressing its lifecycle", async () => {
     const driver = await prisma.user.create({
       data: {
         id: "accepted-match-driver",
@@ -555,7 +555,7 @@ describe("matchRideRequest", () => {
     const requestingPassenger = await prisma.user.create({
       data: {
         id: "accepted-requesting-passenger",
-        name: "Shirin",
+        name: "Rafiq",
         email: "accepted-requesting@example.com",
         passwordHash: "test-hash",
         role: "PASSENGER",
@@ -622,15 +622,48 @@ describe("matchRideRequest", () => {
       requestRideId: requestRide.id,
     });
 
-    expect(result).toBeNull();
+    expect(result).not.toBeNull();
+    expect(result?.rideId).toBe(pooledRide.id);
+    expect(result?.membership.passengerId).toBe(
+      requestingPassenger.id,
+    );
+    expect(result?.membership.rideId).toBe(pooledRide.id);
+    expect(result?.membership.status).toBe("ACCEPTED");
+    expect(result?.membership.farePoisha).toBe(10400);
 
     const acceptedPool = await prisma.ride.findUniqueOrThrow({
       where: {
         id: pooledRide.id,
       },
+      include: {
+        passengers: true,
+      },
     });
 
     expect(acceptedPool.status).toBe("ACCEPTED");
+    expect(acceptedPool.passengers).toHaveLength(2);
+
+    const existingMembership = acceptedPool.passengers.find(
+      (passenger) =>
+        passenger.passengerId === existingPassenger.id,
+    );
+
+    const joinedMembership = acceptedPool.passengers.find(
+      (passenger) =>
+        passenger.passengerId === requestingPassenger.id,
+    );
+
+    expect(existingMembership).toBeDefined();
+    expect(existingMembership?.status).toBe("ACCEPTED");
+    expect(existingMembership?.farePoisha).toBe(8800);
+
+    expect(joinedMembership).toBeDefined();
+    expect(joinedMembership?.status).toBe("ACCEPTED");
+    expect(joinedMembership?.pickupZone).toBe("BANANI");
+    expect(joinedMembership?.destinationZone).toBe(
+      "GULSHAN_1",
+    );
+    expect(joinedMembership?.farePoisha).toBe(10400);
 
     const originalRequest = await prisma.ride.findUnique({
       where: {
@@ -638,14 +671,218 @@ describe("matchRideRequest", () => {
       },
     });
 
-    expect(originalRequest?.status).toBe("REQUESTED");
+    expect(originalRequest).toBeNull();
+  });
 
-    const passengers = await prisma.ridePassenger.findMany({
-      where: {
-        rideId: pooledRide.id,
+  it("prevents concurrent matches from overbooking the last seat in an accepted pool", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        id: "accepted-concurrent-driver",
+        name: "Jashim",
+        email: "accepted-concurrent-jashim@example.com",
+        passwordHash: "test-hash",
+        role: "DRIVER",
       },
     });
 
-    expect(passengers).toHaveLength(1);
+    const nusrat = await prisma.user.create({
+      data: {
+        id: "accepted-concurrent-nusrat",
+        name: "Nusrat",
+        email: "accepted-concurrent-nusrat@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const rafiq = await prisma.user.create({
+      data: {
+        id: "accepted-concurrent-rafiq",
+        name: "Rafiq",
+        email: "accepted-concurrent-rafiq@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const shirin = await prisma.user.create({
+      data: {
+        id: "accepted-concurrent-shirin",
+        name: "Shirin",
+        email: "accepted-concurrent-shirin@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const challenger = await prisma.user.create({
+      data: {
+        id: "accepted-concurrent-challenger",
+        name: "Challenger",
+        email: "accepted-concurrent-challenger@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const bullet = await prisma.vehicle.create({
+      data: {
+        id: "accepted-concurrent-bullet",
+        name: "Bullet Accepted Concurrent",
+        capacity: 3,
+        status: "ONLINE",
+        driverId: driver.id,
+      },
+    });
+
+    const pooledRide = await prisma.ride.create({
+      data: {
+        id: "accepted-concurrent-pool",
+        driverId: driver.id,
+        vehicleId: bullet.id,
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        status: "ACCEPTED",
+      },
+    });
+
+    await prisma.ridePassenger.createMany({
+      data: [
+        {
+          id: "accepted-concurrent-nusrat-membership",
+          rideId: pooledRide.id,
+          passengerId: nusrat.id,
+          pickupZone: "BANANI",
+          destinationZone: "MOHAKHALI",
+          seats: 1,
+          farePoisha: 8800,
+          status: "ACCEPTED",
+        },
+        {
+          id: "accepted-concurrent-rafiq-membership",
+          rideId: pooledRide.id,
+          passengerId: rafiq.id,
+          pickupZone: "BANANI",
+          destinationZone: "GULSHAN_1",
+          seats: 1,
+          farePoisha: 10400,
+          status: "ACCEPTED",
+        },
+      ],
+    });
+
+    const shirinRequest = await prisma.ride.create({
+      data: {
+        id: "accepted-concurrent-shirin-request",
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        status: "REQUESTED",
+      },
+    });
+
+    const challengerRequest = await prisma.ride.create({
+      data: {
+        id: "accepted-concurrent-challenger-request",
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "REQUESTED",
+      },
+    });
+
+    await prisma.ridePassenger.createMany({
+      data: [
+        {
+          id: "accepted-concurrent-shirin-request-membership",
+          rideId: shirinRequest.id,
+          passengerId: shirin.id,
+          pickupZone: "BANANI",
+          destinationZone: "GULSHAN_1",
+          seats: 1,
+          farePoisha: 10400,
+          status: "REQUESTED",
+        },
+        {
+          id: "accepted-concurrent-challenger-request-membership",
+          rideId: challengerRequest.id,
+          passengerId: challenger.id,
+          pickupZone: "BANANI",
+          destinationZone: "MOHAKHALI",
+          seats: 1,
+          farePoisha: 8800,
+          status: "REQUESTED",
+        },
+      ],
+    });
+
+    const results = await Promise.allSettled([
+      matchRideRequest({
+        requestRideId: shirinRequest.id,
+      }),
+      matchRideRequest({
+        requestRideId: challengerRequest.id,
+      }),
+    ]);
+
+    const successfulMatches = results.filter(
+      (result) =>
+        result.status === "fulfilled" &&
+        result.value !== null,
+    );
+
+    expect(successfulMatches).toHaveLength(1);
+
+    const acceptedPool = await prisma.ride.findUniqueOrThrow({
+      where: {
+        id: pooledRide.id,
+      },
+      include: {
+        passengers: true,
+      },
+    });
+
+    expect(acceptedPool.status).toBe("ACCEPTED");
+    expect(acceptedPool.passengers).toHaveLength(3);
+
+    const occupiedSeats = acceptedPool.passengers.reduce(
+      (total, passenger) => total + passenger.seats,
+      0,
+    );
+
+    expect(occupiedSeats).toBe(3);
+
+    expect(
+      acceptedPool.passengers.every(
+        (passenger) => passenger.status === "ACCEPTED",
+      ),
+    ).toBe(true);
+
+    const joinedContenders = acceptedPool.passengers.filter(
+      (passenger) =>
+        passenger.passengerId === shirin.id ||
+        passenger.passengerId === challenger.id,
+    );
+
+    expect(joinedContenders).toHaveLength(1);
+
+    const remainingRequests = await prisma.ride.findMany({
+      where: {
+        id: {
+          in: [
+            shirinRequest.id,
+            challengerRequest.id,
+          ],
+        },
+      },
+      include: {
+        passengers: true,
+      },
+    });
+
+    expect(remainingRequests).toHaveLength(1);
+    expect(remainingRequests[0]?.status).toBe("REQUESTED");
+    expect(remainingRequests[0]?.passengers).toHaveLength(1);
+    expect(
+      remainingRequests[0]?.passengers[0]?.status,
+    ).toBe("REQUESTED");
   });
 });
