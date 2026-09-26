@@ -24,9 +24,14 @@ COPY package.json package-lock.json ./
 COPY apps/api/package.json apps/api/package.json
 COPY apps/web/package.json apps/web/package.json
 
-RUN npm ci --omit=dev
+# Keep Prisma CLI available because Railway runs database migrations
+# from this runtime image during the pre-deploy step.
+RUN npm ci
 
 COPY --from=build /app/apps/api/dist apps/api/dist
+COPY --from=build /app/apps/api/src apps/api/src
+COPY --from=build /app/apps/api/prisma apps/api/prisma
+COPY --from=build /app/apps/api/prisma.config.ts apps/api/prisma.config.ts
 
 EXPOSE 3001
 
