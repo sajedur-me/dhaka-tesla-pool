@@ -137,4 +137,213 @@ describe("createRideRequest", () => {
       "Unsupported route: DHANMONDI -> UTTARA",
     );
   });
+
+  it("prevents production ride requests from overbooking the final pooled seat concurrently", async () => {
+    const driver = await prisma.user.create({
+      data: {
+        id: "production-concurrency-driver",
+        name: "Jashim",
+        email: "production-concurrency-jashim@example.com",
+        passwordHash: "test-hash",
+        role: "DRIVER",
+      },
+    });
+
+    const nusrat = await prisma.user.create({
+      data: {
+        id: "production-concurrency-nusrat",
+        name: "Nusrat",
+        email: "production-concurrency-nusrat@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const rafiq = await prisma.user.create({
+      data: {
+        id: "production-concurrency-rafiq",
+        name: "Rafiq",
+        email: "production-concurrency-rafiq@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const shirin = await prisma.user.create({
+      data: {
+        id: "production-concurrency-shirin",
+        name: "Shirin",
+        email: "production-concurrency-shirin@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const challenger = await prisma.user.create({
+      data: {
+        id: "production-concurrency-challenger",
+        name: "Challenger",
+        email: "production-concurrency-challenger@example.com",
+        passwordHash: "test-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const bullet = await prisma.vehicle.create({
+      data: {
+        id: "production-concurrency-bullet",
+        name: "Bullet Production Concurrency",
+        capacity: 3,
+        status: "ONLINE",
+        driverId: driver.id,
+      },
+    });
+
+    const acceptedPool = await prisma.ride.create({
+      data: {
+        id: "production-concurrency-pool",
+        driverId: driver.id,
+        vehicleId: bullet.id,
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        status: "ACCEPTED",
+      },
+    });
+
+    await prisma.ridePassenger.createMany({
+      data: [
+        {
+          id: "production-concurrency-nusrat-membership",
+          rideId: acceptedPool.id,
+          passengerId: nusrat.id,
+          pickupZone: "BANANI",
+          destinationZone: "MOHAKHALI",
+          seats: 1,
+          farePoisha: 8_800,
+          status: "ACCEPTED",
+        },
+        {
+          id: "production-concurrency-rafiq-membership",
+          rideId: acceptedPool.id,
+          passengerId: rafiq.id,
+          pickupZone: "BANANI",
+          destinationZone: "GULSHAN_1",
+          seats: 1,
+          farePoisha: 10_400,
+          status: "ACCEPTED",
+        },
+      ],
+    });
+
+    const results = await Promise.all([
+      createRideRequest({
+        passengerId: shirin.id,
+        pickupZone: "BANANI",
+        destinationZone: "GULSHAN_1",
+        seats: 1,
+      }),
+      createRideRequest({
+        passengerId: challenger.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        seats: 1,
+      }),
+    ]);
+
+    const storedPool = await prisma.ride.findUniqueOrThrow({
+      where: {
+        id: acceptedPool.id,
+      },
+      include: {
+        passengers: true,
+      },
+    });
+
+    expect(storedPool.status).toBe("ACCEPTED");
+    expect(storedPool.passengers).toHaveLength(3);
+
+    const occupiedSeats = storedPool.passengers.reduce(
+      (total, passenger) => total + passenger.seats,
+      0,
+    );
+
+    expect(occupiedSeats).toBe(3);
+
+    const joinedContenders = storedPool.passengers.filter(
+      (passenger) =>
+        passenger.passengerId === shirin.id ||
+        passenger.passengerId === challenger.id,
+    );
+
+    expect(joinedContenders).toHaveLength(1);
+
+    const joinedPassengerId =
+      joinedContenders[0]?.passengerId;
+
+    const unmatchedPassengerId =
+      joinedPassengerId === shirin.id
+        ? challenger.id
+        : shirin.id;
+
+    const unmatchedResult = results.find(
+      (result) =>
+        result.membership.passengerId === unmatchedPassengerId,
+    );
+
+    expect(unmatchedResult).toBeDefined();
+
+    if (!unmatchedResult) {
+      throw new Error(
+        "Expected one contender to remain unmatched",
+      );
+    }
+
+    expect(unmatchedResult.ride.status).toBe("REQUESTED");
+    expect(unmatchedResult.membership.status).toBe("REQUESTED");
+
+    const unmatchedRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: unmatchedResult.ride.id,
+        },
+        include: {
+          passengers: true,
+        },
+      });
+
+    expect(unmatchedRide.driverId).toBeNull();
+    expect(unmatchedRide.vehicleId).toBeNull();
+    expect(unmatchedRide.passengers).toHaveLength(1);
+    expect(unmatchedRide.passengers[0]?.passengerId).toBe(
+      unmatchedPassengerId,
+    );
+    expect(unmatchedRide.passengers[0]?.status).toBe(
+      "REQUESTED",
+    );
+
+    const contenderMemberships =
+      await prisma.ridePassenger.findMany({
+        where: {
+          passengerId: {
+            in: [shirin.id, challenger.id],
+          },
+        },
+      });
+
+    expect(contenderMemberships).toHaveLength(2);
+
+    const totalSeatsAssignedToPool =
+      await prisma.ridePassenger.aggregate({
+        where: {
+          rideId: acceptedPool.id,
+          status: "ACCEPTED",
+        },
+        _sum: {
+          seats: true,
+        },
+      });
+
+    expect(totalSeatsAssignedToPool._sum.seats).toBe(3);
+  });
+
 });
