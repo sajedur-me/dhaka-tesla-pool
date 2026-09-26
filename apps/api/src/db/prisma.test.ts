@@ -7,11 +7,11 @@ describe("Prisma database connection", () => {
     await prisma.$disconnect();
   });
 
-  it("connects to PostgreSQL", async () => {
+  it("connects to the isolated PostgreSQL test database", async () => {
     const result = await prisma.$queryRaw<
       Array<{ current_database: string }>
     >`SELECT current_database()`;
 
-    expect(result[0]?.current_database).toBe("dhaka_tesla_pool");
+    expect(result[0]?.current_database).toBe("dhaka_tesla_pool_test");
   });
 });
