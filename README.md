@@ -74,18 +74,11 @@ Dhaka Tesla Pool is a **modular monolith** with separate web and API application
 
 ```mermaid
 flowchart LR
-    Browser[Passenger / Driver Browser]
-    Web[Next.js Web App]
-    API[Fastify REST API]
-    Domain[Domain + Application Services]
-    Prisma[Prisma]
-    DB[(PostgreSQL)]
-
-    Browser --> Web
-    Web -->|JSON / REST| API
-    API --> Domain
-    Domain --> Prisma
-    Prisma --> DB
+    Browser["Passenger / Driver Browser"] --> Web["Next.js Web App"]
+    Web --> API["Fastify REST API"]
+    API --> Domain["Domain + Application Services"]
+    Domain --> ORM["Prisma ORM"]
+    ORM --> DB[("PostgreSQL")]
 ```
 
 The browser is not authoritative for fares, capacity, matching, authorization, or lifecycle transitions. Those rules are enforced by the API and database-backed services.
