@@ -2519,3 +2519,1143 @@ a {
     padding-left: 47px;
   }
 }
+
+/* =========================================================
+   Dhaka Tesla Pool — Driver Dashboard
+   ========================================================= */
+
+.driver-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(
+      circle at 88% 2%,
+      rgba(31, 107, 82, 0.08),
+      transparent 28rem
+    ),
+    #f5f7f2;
+  color: #17352c;
+}
+
+.driver-container {
+  width: min(1180px, calc(100% - 48px));
+  margin-inline: auto;
+}
+
+.driver-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgba(23, 53, 44, 0.09);
+  background: rgba(250, 251, 247, 0.92);
+  backdrop-filter: blur(18px);
+}
+
+.driver-header-inner {
+  min-height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.driver-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.driver-brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: #153f33;
+  color: #fff;
+  box-shadow: 0 9px 24px rgba(21, 63, 51, 0.15);
+}
+
+.driver-brand-mark svg {
+  width: 24px;
+  height: 24px;
+}
+
+.driver-brand > span:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.driver-brand strong {
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+
+.driver-brand small {
+  color: #788b84;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.driver-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.driver-user-copy {
+  display: grid;
+  gap: 2px;
+  text-align: right;
+}
+
+.driver-user-copy strong {
+  font-size: 13px;
+}
+
+.driver-user-copy span {
+  color: #80918b;
+  font-size: 11px;
+}
+
+.driver-avatar,
+.driver-passenger-avatar {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: #dce9df;
+  color: #194b3c;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.driver-avatar {
+  width: 38px;
+  height: 38px;
+  font-size: 12px;
+}
+
+.driver-logout {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 13px;
+  border: 1px solid #d8e0db;
+  border-radius: 10px;
+  background: #fff;
+  color: #536760;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.driver-logout:hover {
+  border-color: #bfcfc5;
+  background: #f6f9f6;
+  color: #17352c;
+}
+
+.driver-logout svg {
+  width: 17px;
+  height: 17px;
+}
+
+.driver-content {
+  padding-top: 48px;
+  padding-bottom: 72px;
+}
+
+.driver-welcome {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: 30px;
+}
+
+.driver-eyebrow {
+  margin: 0 0 8px;
+  color: #43816d;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+}
+
+.driver-welcome h1 {
+  margin: 0;
+  color: #14382d;
+  font-size: clamp(30px, 4vw, 46px);
+  line-height: 1.02;
+  letter-spacing: -0.055em;
+}
+
+.driver-welcome > div:first-child > p:last-child {
+  max-width: 610px;
+  margin: 13px 0 0;
+  color: #687c75;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
+.driver-live-status {
+  flex: 0 0 auto;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 14px;
+  border: 1px solid #d6dfda;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.8);
+  color: #667a73;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.driver-live-status > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #98a49f;
+  box-shadow: 0 0 0 4px rgba(152, 164, 159, 0.12);
+}
+
+.driver-live-status-online {
+  border-color: #c6dfd1;
+  color: #1e6c52;
+}
+
+.driver-live-status-online > span {
+  background: #2e9b70;
+  box-shadow: 0 0 0 4px rgba(46, 155, 112, 0.12);
+}
+
+.driver-live-status-on_ride {
+  border-color: #d7d3b5;
+  color: #776a24;
+}
+
+.driver-live-status-on_ride > span {
+  background: #a18c28;
+  box-shadow: 0 0 0 4px rgba(161, 140, 40, 0.12);
+}
+
+.driver-message {
+  margin-bottom: 22px;
+  padding: 13px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.driver-message-error {
+  border: 1px solid #efd2ce;
+  background: #fff5f3;
+  color: #9d4036;
+}
+
+.driver-message-success {
+  border: 1px solid #cfe4d7;
+  background: #f1faf4;
+  color: #28674f;
+}
+
+.driver-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(300px, 0.75fr);
+  gap: 22px;
+  align-items: stretch;
+}
+
+.driver-card,
+.driver-requests-section,
+.driver-history-section {
+  border: 1px solid #dde4df;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: 0 16px 50px rgba(36, 62, 52, 0.055);
+}
+
+.driver-card {
+  padding: 26px;
+}
+
+.driver-card-heading,
+.driver-section-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.driver-card-heading h2,
+.driver-section-heading h2 {
+  margin: 0;
+  color: #173d31;
+  font-size: 21px;
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+
+.driver-ride-status,
+.driver-history-complete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 29px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #edf4ef;
+  color: #41705e;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.driver-ride-status-driver_arrived {
+  background: #f7f2df;
+  color: #7a6a28;
+}
+
+.driver-ride-status-started {
+  background: #e8f4ee;
+  color: #1d7254;
+}
+
+.driver-active-route {
+  margin-top: 28px;
+  display: grid;
+  grid-template-columns: minmax(110px, auto) minmax(80px, 1fr) minmax(120px, auto);
+  align-items: center;
+  gap: 18px;
+  padding: 20px;
+  border-radius: 16px;
+  background: #f5f8f5;
+}
+
+.driver-active-route > div:not(.driver-route-line) {
+  display: grid;
+  gap: 5px;
+}
+
+.driver-active-route > div:last-child {
+  text-align: right;
+}
+
+.driver-active-route span,
+.driver-capacity span,
+.driver-vehicle-status-row span,
+.driver-request-seats span,
+.driver-history-meta span:not(.driver-history-complete) {
+  color: #87958f;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.driver-active-route strong {
+  color: #173d31;
+  font-size: 16px;
+  letter-spacing: -0.025em;
+}
+
+.driver-route-line {
+  display: flex;
+  align-items: center;
+  color: #4e806d;
+}
+
+.driver-route-line > span {
+  height: 1px;
+  flex: 1;
+  background: #cbd9d0;
+}
+
+.driver-route-line svg {
+  width: 20px;
+  height: 20px;
+  margin-inline: 6px;
+}
+
+.driver-passenger-list {
+  display: grid;
+  gap: 1px;
+  margin-top: 20px;
+  overflow: hidden;
+  border: 1px solid #e1e7e3;
+  border-radius: 15px;
+  background: #e1e7e3;
+}
+
+.driver-passenger {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 13px;
+  padding: 14px 16px;
+  background: #fff;
+}
+
+.driver-passenger-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 10px;
+}
+
+.driver-passenger-main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.driver-passenger-main strong {
+  color: #24483c;
+  font-size: 13px;
+}
+
+.driver-passenger-main span {
+  overflow: hidden;
+  color: #7c8d86;
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.driver-passenger-seats {
+  display: grid;
+  gap: 1px;
+  text-align: right;
+}
+
+.driver-passenger-seats strong {
+  color: #173d31;
+  font-size: 16px;
+}
+
+.driver-passenger-seats span {
+  color: #8b9994;
+  font-size: 10px;
+}
+
+.driver-progress {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-top: 24px;
+}
+
+.driver-progress::before {
+  content: "";
+  position: absolute;
+  top: 6px;
+  left: 15%;
+  right: 15%;
+  height: 1px;
+  background: #dce4df;
+}
+
+.driver-progress-step {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  color: #9aa6a1;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.driver-progress-step::before {
+  content: "";
+  width: 12px;
+  height: 12px;
+  border: 3px solid #fff;
+  border-radius: 50%;
+  background: #d2dbd6;
+  box-shadow: 0 0 0 1px #d2dbd6;
+}
+
+.driver-progress-current {
+  color: #245e49;
+}
+
+.driver-progress-current::before {
+  background: #2d8a65;
+  box-shadow: 0 0 0 1px #2d8a65;
+}
+
+.driver-progress-done {
+  color: #55766a;
+}
+
+.driver-progress-done::before {
+  background: #7eb19c;
+  box-shadow: 0 0 0 1px #7eb19c;
+}
+
+.driver-primary-action,
+.driver-status-button,
+.driver-accept-button {
+  border: 0;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition:
+    transform 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease,
+    opacity 160ms ease;
+}
+
+.driver-primary-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 24px;
+  border-radius: 12px;
+  background: #153f33;
+  color: #fff;
+  font-size: 13px;
+  box-shadow: 0 10px 24px rgba(21, 63, 51, 0.13);
+}
+
+.driver-primary-action:hover:not(:disabled),
+.driver-accept-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #0e3328;
+}
+
+.driver-primary-action:disabled,
+.driver-status-button:disabled,
+.driver-accept-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.driver-empty-active {
+  min-height: 330px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+.driver-empty-icon {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: #edf4ef;
+  color: #3f765f;
+}
+
+.driver-empty-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.driver-empty-active h3,
+.driver-section-empty h3 {
+  margin: 0;
+  color: #294b40;
+  font-size: 15px;
+  letter-spacing: -0.02em;
+}
+
+.driver-empty-active p,
+.driver-section-empty p {
+  max-width: 390px;
+  margin: 8px auto 0;
+  color: #83918c;
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.driver-tesla-badge {
+  padding: 5px 9px;
+  border: 1px solid #dce4df;
+  border-radius: 7px;
+  color: #73857e;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+}
+
+.driver-car-visual {
+  height: 150px;
+  display: grid;
+  place-items: center;
+  margin: 14px 0 8px;
+  overflow: hidden;
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 50% 72%, rgba(44, 92, 72, 0.12), transparent 35%),
+    linear-gradient(180deg, #f7faf7, #eef3ef);
+}
+
+.driver-car-body {
+  position: relative;
+  width: 180px;
+  height: 48px;
+  margin-top: 20px;
+  border-radius: 34px 48px 15px 15px;
+  background: #204d3e;
+  box-shadow: 0 14px 18px rgba(27, 63, 50, 0.13);
+}
+
+.driver-car-body::before {
+  content: "";
+  position: absolute;
+  left: 38px;
+  top: -29px;
+  width: 103px;
+  height: 40px;
+  border-radius: 45px 54px 5px 5px;
+  background: #204d3e;
+  transform: skewX(-10deg);
+}
+
+.driver-car-window {
+  position: absolute;
+  z-index: 2;
+  left: 55px;
+  top: -21px;
+  width: 70px;
+  height: 25px;
+  border-radius: 30px 35px 3px 3px;
+  background: #bdd0c7;
+  transform: skewX(-9deg);
+}
+
+.driver-car-wheel {
+  position: absolute;
+  bottom: -10px;
+  width: 27px;
+  height: 27px;
+  border: 7px solid #273a34;
+  border-radius: 50%;
+  background: #a8bbb2;
+}
+
+.driver-car-wheel-left {
+  left: 28px;
+}
+
+.driver-car-wheel-right {
+  right: 27px;
+}
+
+.driver-capacity {
+  padding: 18px 0;
+  border-top: 1px solid #e6ebe8;
+  border-bottom: 1px solid #e6ebe8;
+}
+
+.driver-capacity > div:first-child {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.driver-capacity strong {
+  color: #173d31;
+  font-size: 15px;
+}
+
+.driver-seat-dots {
+  display: flex;
+  gap: 7px;
+  margin-top: 13px;
+}
+
+.driver-seat-dot {
+  height: 7px;
+  flex: 1;
+  border-radius: 999px;
+  background: #e1e8e4;
+}
+
+.driver-seat-dot-filled {
+  background: #3d8c6c;
+}
+
+.driver-capacity p {
+  margin: 9px 0 0;
+  color: #84938d;
+  font-size: 10px;
+}
+
+.driver-vehicle-status-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 17px 0;
+}
+
+.driver-vehicle-status-row > div {
+  display: grid;
+  gap: 4px;
+}
+
+.driver-vehicle-status-row strong {
+  color: #294b40;
+  font-size: 13px;
+}
+
+.driver-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #9ba7a2;
+}
+
+.driver-status-dot-online {
+  background: #2e9b70;
+  box-shadow: 0 0 0 5px rgba(46, 155, 112, 0.1);
+}
+
+.driver-status-dot-on_ride {
+  background: #a18c28;
+  box-shadow: 0 0 0 5px rgba(161, 140, 40, 0.1);
+}
+
+.driver-status-button {
+  width: 100%;
+  min-height: 43px;
+  border-radius: 11px;
+  background: #e5f1e9;
+  color: #236047;
+  font-size: 12px;
+}
+
+.driver-status-button:hover:not(:disabled) {
+  background: #d9ebdf;
+}
+
+.driver-status-button-offline {
+  border: 1px solid #dce3df;
+  background: #fff;
+  color: #687a73;
+}
+
+.driver-status-button-offline:hover:not(:disabled) {
+  background: #f6f8f6;
+}
+
+.driver-requests-section,
+.driver-history-section {
+  margin-top: 22px;
+  padding: 26px;
+}
+
+.driver-section-heading {
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.driver-section-heading > span {
+  color: #82918b;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.driver-request-list,
+.driver-history-list {
+  display: grid;
+  gap: 10px;
+}
+
+.driver-request-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 1.15fr) minmax(210px, 1fr) 70px 105px;
+  align-items: center;
+  gap: 20px;
+  padding: 15px 16px;
+  border: 1px solid #e3e8e5;
+  border-radius: 14px;
+  background: #fff;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease;
+}
+
+.driver-request-row:hover {
+  border-color: #cad9d0;
+  box-shadow: 0 8px 24px rgba(39, 69, 57, 0.05);
+}
+
+.driver-request-person {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.driver-request-person > div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.driver-request-person strong {
+  overflow: hidden;
+  color: #294b40;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.driver-request-person span:not(.driver-passenger-avatar) {
+  color: #8a9893;
+  font-size: 10px;
+}
+
+.driver-request-route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #416f5e;
+}
+
+.driver-request-route strong {
+  color: #38584d;
+  font-size: 11px;
+}
+
+.driver-request-route svg {
+  width: 16px;
+  height: 16px;
+}
+
+.driver-request-seats {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+}
+
+.driver-request-seats strong {
+  color: #294b40;
+  font-size: 14px;
+}
+
+.driver-accept-button {
+  min-height: 37px;
+  padding: 0 13px;
+  border-radius: 9px;
+  background: #153f33;
+  color: #fff;
+  font-size: 11px;
+}
+
+.driver-section-empty {
+  padding: 42px 20px;
+  border: 1px dashed #d7e0da;
+  border-radius: 14px;
+  background: #fafcfa;
+  text-align: center;
+}
+
+.driver-history-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 15px 16px;
+  border: 1px solid #e3e8e5;
+  border-radius: 14px;
+}
+
+.driver-history-route {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.driver-history-icon {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: #eef4f0;
+  color: #497562;
+}
+
+.driver-history-icon svg {
+  width: 17px;
+  height: 17px;
+}
+
+.driver-history-route > div {
+  display: grid;
+  gap: 3px;
+}
+
+.driver-history-route strong {
+  color: #294b40;
+  font-size: 12px;
+}
+
+.driver-history-route strong span {
+  margin-inline: 6px;
+  color: #86a095;
+}
+
+.driver-history-route p {
+  margin: 0;
+  color: #8b9994;
+  font-size: 10px;
+}
+
+.driver-history-meta {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.driver-history-meta > div {
+  display: grid;
+  gap: 3px;
+  text-align: center;
+}
+
+.driver-history-meta strong {
+  color: #294b40;
+  font-size: 13px;
+}
+
+.driver-loading {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+
+.driver-loading-mark {
+  width: 50px;
+  height: 50px;
+  display: grid;
+  place-items: center;
+  margin-bottom: 10px;
+  border-radius: 15px;
+  background: #153f33;
+  color: #fff;
+}
+
+.driver-loading-mark svg {
+  width: 27px;
+  height: 27px;
+}
+
+.driver-loading strong {
+  color: #23493b;
+  font-size: 14px;
+}
+
+.driver-loading span {
+  color: #84948e;
+  font-size: 11px;
+}
+
+@media (max-width: 960px) {
+  .driver-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .driver-vehicle-card {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: 28px;
+  }
+
+  .driver-vehicle-card .driver-card-heading,
+  .driver-vehicle-card .driver-status-button {
+    grid-column: 1 / -1;
+  }
+
+  .driver-car-visual {
+    margin-bottom: 0;
+  }
+
+  .driver-capacity {
+    align-self: center;
+    border-top: 0;
+  }
+
+  .driver-vehicle-status-row {
+    grid-column: 2;
+  }
+
+  .driver-request-row {
+    grid-template-columns: minmax(160px, 1fr) minmax(190px, 1fr) 60px 95px;
+    gap: 12px;
+  }
+}
+
+@media (max-width: 720px) {
+  .driver-container {
+    width: min(100% - 30px, 1180px);
+  }
+
+  .driver-header-inner {
+    min-height: 68px;
+  }
+
+  .driver-user-copy {
+    display: none;
+  }
+
+  .driver-logout {
+    width: 38px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .driver-logout span {
+    display: none;
+  }
+
+  .driver-content {
+    padding-top: 32px;
+    padding-bottom: 50px;
+  }
+
+  .driver-welcome {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .driver-overview-grid {
+    gap: 15px;
+  }
+
+  .driver-card,
+  .driver-requests-section,
+  .driver-history-section {
+    border-radius: 18px;
+  }
+
+  .driver-card,
+  .driver-requests-section,
+  .driver-history-section {
+    padding: 20px;
+  }
+
+  .driver-active-route {
+    grid-template-columns: 1fr;
+    gap: 11px;
+  }
+
+  .driver-active-route > div:last-child {
+    text-align: left;
+  }
+
+  .driver-route-line {
+    width: 100%;
+  }
+
+  .driver-vehicle-card {
+    display: block;
+  }
+
+  .driver-vehicle-status-row {
+    display: flex;
+  }
+
+  .driver-request-row {
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+  }
+
+  .driver-request-route {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .driver-request-seats {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .driver-accept-button {
+    grid-column: 1 / -1;
+  }
+
+  .driver-history-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .driver-history-meta {
+    width: 100%;
+    justify-content: space-between;
+    gap: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .driver-brand small {
+    display: none;
+  }
+
+  .driver-brand strong {
+    font-size: 13px;
+  }
+
+  .driver-brand-mark {
+    width: 37px;
+    height: 37px;
+    border-radius: 11px;
+  }
+
+  .driver-avatar {
+    display: none;
+  }
+
+  .driver-welcome h1 {
+    font-size: 31px;
+  }
+
+  .driver-card-heading,
+  .driver-section-heading {
+    gap: 12px;
+  }
+
+  .driver-passenger {
+    grid-template-columns: auto 1fr;
+  }
+
+  .driver-passenger-seats {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .driver-history-meta {
+    flex-wrap: wrap;
+  }
+}
