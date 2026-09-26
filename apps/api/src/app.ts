@@ -15,6 +15,13 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   await app.register(cors, {
     origin: process.env.WEB_ORIGIN ?? "http://localhost:3000",
+    methods: [
+      "GET",
+      "HEAD",
+      "POST",
+      "PATCH",
+      "OPTIONS",
+    ],
   });
 
   await registerAuthPlugin(app);
