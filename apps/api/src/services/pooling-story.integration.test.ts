@@ -9,7 +9,6 @@ import {
 import { prisma } from "../db/prisma.js";
 import { acceptRideRequest } from "./accept-ride-request.js";
 import { createRideRequest } from "./create-ride-request.js";
-import { matchRideRequest } from "./match-ride-request.js";
 import { updateDriverVehicleStatus } from "./update-driver-vehicle-status.js";
 
 describe("Dhaka Tesla Pool story integration", () => {
@@ -125,29 +124,20 @@ describe("Dhaka Tesla Pool story integration", () => {
       seats: 1,
     });
 
-    expect(rafiqRequest.ride.status).toBe(
-      "REQUESTED",
-    );
-    expect(
-      rafiqRequest.membership.farePoisha,
-    ).toBe(10400);
-
-    const matchedRafiq = await matchRideRequest({
-      requestRideId: rafiqRequest.ride.id,
-    });
-
-    expect(matchedRafiq).not.toBeNull();
-    expect(matchedRafiq?.rideId).toBe(
+    expect(rafiqRequest.ride.id).toBe(
       acceptedRide.id,
     );
+    expect(rafiqRequest.ride.status).toBe(
+      "ACCEPTED",
+    );
     expect(
-      matchedRafiq?.membership.passengerId,
+      rafiqRequest.membership.passengerId,
     ).toBe(rafiq.id);
     expect(
-      matchedRafiq?.membership.status,
+      rafiqRequest.membership.status,
     ).toBe("ACCEPTED");
     expect(
-      matchedRafiq?.membership.farePoisha,
+      rafiqRequest.membership.farePoisha,
     ).toBe(10400);
 
     const finalRide =
@@ -228,13 +218,34 @@ describe("Dhaka Tesla Pool story integration", () => {
       bullet.capacity,
     );
 
-    const rafiqOriginalRide =
-      await prisma.ride.findUnique({
-        where: {
-          id: rafiqRequest.ride.id,
-        },
-      });
+    const storedRides = await prisma.ride.findMany({
+      where: {
+        OR: [
+          {
+            passengers: {
+              some: {
+                passengerId: nusrat.id,
+              },
+            },
+          },
+          {
+            passengers: {
+              some: {
+                passengerId: rafiq.id,
+              },
+            },
+          },
+        ],
+      },
+      select: {
+        id: true,
+      },
+    });
 
-    expect(rafiqOriginalRide).toBeNull();
+    expect(storedRides).toEqual([
+      {
+        id: acceptedRide.id,
+      },
+    ]);
   });
 });

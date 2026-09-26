@@ -45,6 +45,42 @@ describe("application CORS", () => {
     }
   });
 
+  it("allows PATCH preflight requests from the web client", async () => {
+    process.env.JWT_SECRET = "test-jwt-secret";
+    process.env.WEB_ORIGIN = "http://localhost:3000";
+
+    const app = await buildApp();
+
+    try {
+      const response = await app.inject({
+        method: "OPTIONS",
+        url: "/driver/vehicle/status",
+        headers: {
+          origin: "http://localhost:3000",
+          "access-control-request-method": "PATCH",
+          "access-control-request-headers":
+            "authorization,content-type",
+        },
+      });
+
+      expect(response.statusCode).toBe(204);
+      expect(
+        response.headers["access-control-allow-origin"],
+      ).toBe("http://localhost:3000");
+      expect(
+        response.headers["access-control-allow-methods"],
+      ).toContain("PATCH");
+      expect(
+        response.headers["access-control-allow-headers"],
+      ).toContain("authorization");
+      expect(
+        response.headers["access-control-allow-headers"],
+      ).toContain("content-type");
+    } finally {
+      await app.close();
+    }
+  });
+
   it("does not allow an unexpected origin", async () => {
     process.env.JWT_SECRET = "test-jwt-secret";
     process.env.WEB_ORIGIN = "http://localhost:3000";

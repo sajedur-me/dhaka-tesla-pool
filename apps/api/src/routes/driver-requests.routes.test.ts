@@ -512,4 +512,272 @@ describe("driver request routes", () => {
       error: "Ride request exceeds vehicle capacity",
     });
   });
+
+  it("returns the driver's active ride with passengers and vehicle details", async () => {
+    const { driver, vehicle, token } =
+      await createDriverWithBullet("ONLINE");
+
+    const nusrat = await prisma.user.create({
+      data: {
+        name: "Nusrat",
+        email: "active-nusrat@example.com",
+        passwordHash: "test-password-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const rafiq = await prisma.user.create({
+      data: {
+        name: "Rafiq",
+        email: "active-rafiq@example.com",
+        passwordHash: "test-password-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const ride = await prisma.ride.create({
+      data: {
+        driverId: driver.id,
+        vehicleId: vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "ACCEPTED",
+        passengers: {
+          create: [
+            {
+              passengerId: nusrat.id,
+              pickupZone: "BANANI",
+              destinationZone: "MOHAKHALI",
+              seats: 1,
+              farePoisha: 8_800,
+              status: "ACCEPTED",
+            },
+            {
+              passengerId: rafiq.id,
+              pickupZone: "BANANI",
+              destinationZone: "GULSHAN_1",
+              seats: 1,
+              farePoisha: 10_400,
+              status: "ACCEPTED",
+            },
+          ],
+        },
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/driver/rides/active",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const body = response.json();
+
+    expect(body.ride).toMatchObject({
+      id: ride.id,
+      pickupZone: "BANANI",
+      destinationZone: "MOHAKHALI",
+      status: "ACCEPTED",
+      vehicle: {
+        id: vehicle.id,
+        name: "Bullet",
+        capacity: 3,
+        status: "ONLINE",
+      },
+    });
+
+    expect(body.ride.passengers).toHaveLength(2);
+
+    expect(body.ride.passengers).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          passengerId: nusrat.id,
+          pickupZone: "BANANI",
+          destinationZone: "MOHAKHALI",
+          seats: 1,
+          status: "ACCEPTED",
+          passenger: {
+            id: nusrat.id,
+            name: "Nusrat",
+          },
+        }),
+        expect.objectContaining({
+          passengerId: rafiq.id,
+          pickupZone: "BANANI",
+          destinationZone: "GULSHAN_1",
+          seats: 1,
+          status: "ACCEPTED",
+          passenger: {
+            id: rafiq.id,
+            name: "Rafiq",
+          },
+        }),
+      ]),
+    );
+
+    expect(
+      JSON.stringify(body.ride),
+    ).not.toContain("farePoisha");
+  });
+
+  it("returns null when the driver has no active ride", async () => {
+    const { token } =
+      await createDriverWithBullet("ONLINE");
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/driver/rides/active",
+      headers: {
+        authorization: `Bearer ${token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      ride: null,
+    });
+  });
+
+  it("returns only the authenticated driver's completed ride history", async () => {
+    const first =
+      await createDriverWithBullet("ONLINE");
+
+    const secondDriver = await prisma.user.create({
+      data: {
+        name: "Karim",
+        email: "history-karim@example.com",
+        passwordHash: "test-password-hash",
+        role: "DRIVER",
+      },
+    });
+
+    const secondVehicle = await prisma.vehicle.create({
+      data: {
+        name: "History Tesla",
+        capacity: 3,
+        status: "ONLINE",
+        driverId: secondDriver.id,
+      },
+    });
+
+    const nusrat = await prisma.user.create({
+      data: {
+        name: "Nusrat",
+        email: "history-nusrat@example.com",
+        passwordHash: "test-password-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const otherPassenger = await prisma.user.create({
+      data: {
+        name: "Other Passenger",
+        email: "history-other@example.com",
+        passwordHash: "test-password-hash",
+        role: "PASSENGER",
+      },
+    });
+
+    const completedRide = await prisma.ride.create({
+      data: {
+        driverId: first.driver.id,
+        vehicleId: first.vehicle.id,
+        pickupZone: "BANANI",
+        destinationZone: "MOHAKHALI",
+        status: "COMPLETED",
+        startedAt: new Date("2026-09-25T08:00:00.000Z"),
+        completedAt: new Date("2026-09-25T08:30:00.000Z"),
+        passengers: {
+          create: {
+            passengerId: nusrat.id,
+            pickupZone: "BANANI",
+            destinationZone: "MOHAKHALI",
+            seats: 1,
+            farePoisha: 8_800,
+            status: "COMPLETED",
+          },
+        },
+      },
+    });
+
+    await prisma.ride.create({
+      data: {
+        driverId: secondDriver.id,
+        vehicleId: secondVehicle.id,
+        pickupZone: "MIRPUR",
+        destinationZone: "FARMGATE",
+        status: "COMPLETED",
+        startedAt: new Date("2026-09-25T09:00:00.000Z"),
+        completedAt: new Date("2026-09-25T09:30:00.000Z"),
+        passengers: {
+          create: {
+            passengerId: otherPassenger.id,
+            pickupZone: "MIRPUR",
+            destinationZone: "FARMGATE",
+            seats: 1,
+            farePoisha: 15_200,
+            status: "COMPLETED",
+          },
+        },
+      },
+    });
+
+    const response = await app.inject({
+      method: "GET",
+      url: "/driver/rides/history",
+      headers: {
+        authorization: `Bearer ${first.token}`,
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const body = response.json();
+
+    expect(body.rides).toHaveLength(1);
+
+    expect(body.rides[0]).toMatchObject({
+      id: completedRide.id,
+      status: "COMPLETED",
+      vehicle: {
+        id: first.vehicle.id,
+        name: "Bullet",
+      },
+      passengers: [
+        expect.objectContaining({
+          passengerId: nusrat.id,
+          seats: 1,
+          status: "COMPLETED",
+          passenger: {
+            id: nusrat.id,
+            name: "Nusrat",
+          },
+        }),
+      ],
+    });
+
+    expect(
+      JSON.stringify(body.rides),
+    ).not.toContain("farePoisha");
+  });
+
+  it("protects driver ride read endpoints with authentication", async () => {
+    const activeResponse = await app.inject({
+      method: "GET",
+      url: "/driver/rides/active",
+    });
+
+    const historyResponse = await app.inject({
+      method: "GET",
+      url: "/driver/rides/history",
+    });
+
+    expect(activeResponse.statusCode).toBe(401);
+    expect(historyResponse.statusCode).toBe(401);
+  });
+
 });

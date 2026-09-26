@@ -193,3 +193,220 @@ export async function cancelPassengerRide(
     },
   );
 }
+
+export type VehicleStatus = "OFFLINE" | "ONLINE" | "ON_RIDE";
+
+export type DriverVehicle = {
+  id: string;
+  name: string;
+  capacity: number;
+  status: VehicleStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DriverRidePassenger = {
+  id: string;
+  passengerId: string;
+  pickupZone: DhakaZone;
+  destinationZone: DhakaZone;
+  seats: number;
+  status: RideStatus;
+  passenger: {
+    id: string;
+    name: string;
+  };
+};
+
+export type DriverRide = {
+  id: string;
+  pickupZone: DhakaZone;
+  destinationZone: DhakaZone;
+  status: RideStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  vehicle: {
+    id: string;
+    name: string;
+    capacity: number;
+    status: VehicleStatus;
+  } | null;
+  passengers: DriverRidePassenger[];
+};
+
+export type DriverRideRequest = {
+  id: string;
+  pickupZone: DhakaZone;
+  destinationZone: DhakaZone;
+  status: RideStatus;
+  createdAt: string;
+  passengers: Array<{
+    id: string;
+    pickupZone: DhakaZone;
+    destinationZone: DhakaZone;
+    seats: number;
+    status: RideStatus;
+    passenger: {
+      id: string;
+      name: string;
+    };
+  }>;
+};
+
+type DriverVehicleResponse = {
+  vehicle: DriverVehicle;
+};
+
+type DriverRequestsResponse = {
+  requests: DriverRideRequest[];
+};
+
+type DriverActiveRideResponse = {
+  ride: DriverRide | null;
+};
+
+type DriverRideHistoryResponse = {
+  rides: DriverRide[];
+};
+
+export async function getDriverVehicle(
+  token: string,
+): Promise<DriverVehicle> {
+  const response = await authenticatedFetch(
+    "/driver/vehicle",
+    token,
+  );
+
+  const body =
+    (await response.json()) as DriverVehicleResponse;
+
+  return body.vehicle;
+}
+
+export async function updateDriverVehicleStatus(
+  token: string,
+  status: "ONLINE" | "OFFLINE",
+): Promise<DriverVehicle> {
+  const response = await authenticatedFetch(
+    "/driver/vehicle/status",
+    token,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        status,
+      }),
+    },
+  );
+
+  const body =
+    (await response.json()) as DriverVehicleResponse;
+
+  return body.vehicle;
+}
+
+export async function getDriverRequests(
+  token: string,
+): Promise<DriverRideRequest[]> {
+  const response = await authenticatedFetch(
+    "/driver/requests",
+    token,
+  );
+
+  const body =
+    (await response.json()) as DriverRequestsResponse;
+
+  return body.requests;
+}
+
+export async function acceptDriverRideRequest(
+  token: string,
+  rideId: string,
+): Promise<void> {
+  await authenticatedFetch(
+    `/driver/requests/${rideId}/accept`,
+    token,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function getDriverActiveRide(
+  token: string,
+): Promise<DriverRide | null> {
+  const response = await authenticatedFetch(
+    "/driver/rides/active",
+    token,
+  );
+
+  const body =
+    (await response.json()) as DriverActiveRideResponse;
+
+  return body.ride;
+}
+
+export async function getDriverRideHistory(
+  token: string,
+): Promise<DriverRide[]> {
+  const response = await authenticatedFetch(
+    "/driver/rides/history",
+    token,
+  );
+
+  const body =
+    (await response.json()) as DriverRideHistoryResponse;
+
+  return body.rides;
+}
+
+async function transitionDriverRide(
+  token: string,
+  rideId: string,
+  action: "arrive" | "start" | "complete",
+): Promise<void> {
+  await authenticatedFetch(
+    `/driver/rides/${rideId}/${action}`,
+    token,
+    {
+      method: "POST",
+    },
+  );
+}
+
+export async function markDriverArrived(
+  token: string,
+  rideId: string,
+): Promise<void> {
+  await transitionDriverRide(
+    token,
+    rideId,
+    "arrive",
+  );
+}
+
+export async function startDriverRide(
+  token: string,
+  rideId: string,
+): Promise<void> {
+  await transitionDriverRide(
+    token,
+    rideId,
+    "start",
+  );
+}
+
+export async function completeDriverRide(
+  token: string,
+  rideId: string,
+): Promise<void> {
+  await transitionDriverRide(
+    token,
+    rideId,
+    "complete",
+  );
+}
