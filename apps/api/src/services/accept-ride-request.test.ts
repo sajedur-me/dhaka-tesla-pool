@@ -9,6 +9,7 @@ import {
 import { prisma } from "../db/prisma.js";
 import { acceptRideRequest } from "./accept-ride-request.js";
 import {
+  DriverAlreadyHasActiveRideError,
   DriverMustBeOnlineError,
   DriverVehicleNotFoundError,
   RideCapacityExceededError,
@@ -68,13 +69,17 @@ describe("acceptRideRequest", () => {
     };
   }
 
+  let passengerSequence = 0;
+
   async function createPassengerRequest(
     seats = 1,
   ) {
+    passengerSequence += 1;
+
     const passenger = await prisma.user.create({
       data: {
-        name: "Nusrat",
-        email: "nusrat@example.com",
+        name: `Passenger ${passengerSequence}`,
+        email: `passenger-${passengerSequence}@example.com`,
         passwordHash: "test-password-hash",
         role: "PASSENGER",
       },
@@ -392,4 +397,120 @@ describe("acceptRideRequest", () => {
       "ACCEPTED",
     );
   });
+
+  it("rejects a second independent ride while the driver already has an active ride", async () => {
+    const { driver, vehicle } = await createDriver({
+      name: "Jashim",
+      email: "jashim@example.com",
+      vehicleName: "Bullet",
+    });
+
+    const firstRequest = await createPassengerRequest();
+    const secondRequest = await createPassengerRequest();
+
+    await acceptRideRequest({
+      driverId: driver.id,
+      rideId: firstRequest.ride.id,
+    });
+
+    await expect(
+      acceptRideRequest({
+        driverId: driver.id,
+        rideId: secondRequest.ride.id,
+      }),
+    ).rejects.toBeInstanceOf(
+      DriverAlreadyHasActiveRideError,
+    );
+
+    const firstRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: firstRequest.ride.id,
+        },
+      });
+
+    const secondRide =
+      await prisma.ride.findUniqueOrThrow({
+        where: {
+          id: secondRequest.ride.id,
+        },
+      });
+
+    expect(firstRide.status).toBe("ACCEPTED");
+    expect(firstRide.driverId).toBe(driver.id);
+    expect(firstRide.vehicleId).toBe(vehicle.id);
+
+    expect(secondRide.status).toBe("REQUESTED");
+    expect(secondRide.driverId).toBeNull();
+    expect(secondRide.vehicleId).toBeNull();
+  });
+
+  it("allows only one independent ride when the same driver accepts concurrently", async () => {
+    const { driver, vehicle } = await createDriver({
+      name: "Jashim",
+      email: "jashim@example.com",
+      vehicleName: "Bullet",
+    });
+
+    const firstRequest = await createPassengerRequest();
+    const secondRequest = await createPassengerRequest();
+
+    const results = await Promise.allSettled([
+      acceptRideRequest({
+        driverId: driver.id,
+        rideId: firstRequest.ride.id,
+      }),
+      acceptRideRequest({
+        driverId: driver.id,
+        rideId: secondRequest.ride.id,
+      }),
+    ]);
+
+    const fulfilled = results.filter(
+      (
+        result,
+      ): result is PromiseFulfilledResult<
+        Awaited<ReturnType<typeof acceptRideRequest>>
+      > => result.status === "fulfilled",
+    );
+
+    const rejected = results.filter(
+      (
+        result,
+      ): result is PromiseRejectedResult =>
+        result.status === "rejected",
+    );
+
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+
+    expect(rejected[0]?.reason).toBeInstanceOf(
+      DriverAlreadyHasActiveRideError,
+    );
+
+    const assignedRides = await prisma.ride.findMany({
+      where: {
+        vehicleId: vehicle.id,
+        status: "ACCEPTED",
+      },
+    });
+
+    const unassignedRides = await prisma.ride.findMany({
+      where: {
+        id: {
+          in: [
+            firstRequest.ride.id,
+            secondRequest.ride.id,
+          ],
+        },
+        status: "REQUESTED",
+        driverId: null,
+        vehicleId: null,
+      },
+    });
+
+    expect(assignedRides).toHaveLength(1);
+    expect(unassignedRides).toHaveLength(1);
+  });
+
 });

@@ -41,3 +41,10 @@ export class RideCapacityExceededError extends Error {
     this.name = "RideCapacityExceededError";
   }
 }
+
+export class DriverAlreadyHasActiveRideError extends Error {
+  constructor() {
+    super("Driver already has an active ride");
+    this.name = "DriverAlreadyHasActiveRideError";
+  }
+}
