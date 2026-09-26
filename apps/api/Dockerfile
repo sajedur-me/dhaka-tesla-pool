@@ -29,6 +29,7 @@ COPY apps/web/package.json apps/web/package.json
 RUN npm ci
 
 COPY --from=build /app/apps/api/dist apps/api/dist
+COPY --from=build /app/apps/api/src apps/api/src
 COPY --from=build /app/apps/api/prisma apps/api/prisma
 COPY --from=build /app/apps/api/prisma.config.ts apps/api/prisma.config.ts
 
