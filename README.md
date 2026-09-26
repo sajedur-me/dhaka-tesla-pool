@@ -152,7 +152,7 @@ Node.js is not required on the host when running the complete application throug
 ### 1. Clone the repository
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/sajedur-me/dhaka-tesla-pool.git
 cd dhaka-tesla-pool
 ```
 
