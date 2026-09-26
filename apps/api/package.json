@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint src",
     "test": "vitest run",
+    "db:migrate": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts"
   },
   "engines": {
