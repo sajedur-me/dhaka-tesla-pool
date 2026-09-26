@@ -1,5 +1,6 @@
 import { prisma } from "../db/prisma.js";
 import {
+  DriverAlreadyHasActiveRideError,
   DriverMustBeOnlineError,
   DriverVehicleNotFoundError,
   RideCapacityExceededError,
@@ -73,6 +74,26 @@ export async function acceptRideRequest({
 
     if (vehicle.status !== "ONLINE") {
       throw new DriverMustBeOnlineError();
+    }
+
+    const existingActiveRide = await tx.ride.findFirst({
+      where: {
+        vehicleId: vehicle.id,
+        status: {
+          in: [
+            "ACCEPTED",
+            "DRIVER_ARRIVED",
+            "STARTED",
+          ],
+        },
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (existingActiveRide) {
+      throw new DriverAlreadyHasActiveRideError();
     }
 
     const passengers = await tx.ridePassenger.findMany({
